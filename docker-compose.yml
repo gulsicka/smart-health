@@ -1,0 +1,53 @@
+services:
+  auth-service:
+    build: ./services/auth-service
+    ports: ["8001:8000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:password@auth-db:5432/auth_db
+    depends_on:
+      - auth-db
+
+  auth-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+
+  patient-service:
+    build: ./services/patient-service
+    ports: ["8002:8000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:password@patient-db:5432/patient_db
+    depends_on:
+      - patient-db
+
+  patient-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: patient_db
+    volumes:
+      - patient_postgres_data:/var/lib/postgresql/data
+
+  provider-service:
+    build: ./services/provider-service
+    ports: ["8003:8000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
+    depends_on:
+      - provider-db
+
+  provider-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: provider_db
+    volumes:
+      - provider_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  auth_postgres_data:
+  patient_postgres_data:
+  provider_postgres_data:
