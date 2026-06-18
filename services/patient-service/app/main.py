@@ -11,7 +11,6 @@ def health():
     return {"status": "ok", "service": "patient-service"}
 
 
-# CREATE
 @app.post("/patients", response_model=schemas.Patient)
 def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     existing = db.query(models.Patient).filter(models.Patient.email == patient.email).first()
@@ -24,24 +23,21 @@ def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)
     return db_patient
 
 
-# GET ALL
 @app.get("/patients", response_model=list[schemas.Patient])
-def get_patients(db: Session = Depends(get_db)):
+def get_patients(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     return db.query(models.Patient).all()
 
 
-# GET ONE
 @app.get("/patients/{patient_id}", response_model=schemas.Patient)
-def get_patient(patient_id: int, db: Session = Depends(get_db)):
+def get_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return patient
 
 
-# UPDATE
 @app.put("/patients/{patient_id}", response_model=schemas.Patient)
-def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session = Depends(get_db)):
+def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -52,9 +48,8 @@ def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session 
     return patient
 
 
-# DELETE
 @app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int, db: Session = Depends(get_db)):
+def delete_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
