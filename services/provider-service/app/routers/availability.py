@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app import models, schemas
+from app import models, schemas, oauth
 
 router = APIRouter()
 
@@ -11,7 +11,8 @@ router = APIRouter()
 def set_availability(
     provider_id: int,
     avail: schemas.ProviderAvailabilityCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(oauth.require_role("admin"))
 ):
     provider = db.query(models.Provider).filter(models.Provider.id == provider_id).first()
     if not provider:
@@ -62,14 +63,14 @@ def set_availability(
 
 
 @router.get("/providers/{provider_id}/availability", response_model=list[schemas.ProviderAvailability])
-def get_availability(provider_id: int, db: Session = Depends(get_db)):
+def get_availability(provider_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     return db.query(models.ProviderAvailability).filter(
         models.ProviderAvailability.provider_id == provider_id
     ).all()
 
 
 @router.delete("/providers/{provider_id}/availability/{availability_id}")
-def delete_availability(provider_id: int, availability_id: int, db: Session = Depends(get_db)):
+def delete_availability(provider_id: int, availability_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
     avail = db.query(models.ProviderAvailability).filter(
         models.ProviderAvailability.id == availability_id,
         models.ProviderAvailability.provider_id == provider_id,

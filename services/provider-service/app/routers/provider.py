@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/providers", response_model=schemas.Provider)
-def create_provider(provider: schemas.ProviderCreate, db: Session = Depends(get_db)):
+def create_provider(provider: schemas.ProviderCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
     # Validate department exists
     department = db.query(models.Department).filter(models.Department.id == provider.department_id).first()
     if not department:
@@ -29,7 +29,8 @@ def create_provider(provider: schemas.ProviderCreate, db: Session = Depends(get_
 def get_providers(
     clinic_id: Optional[int] = Query(None, description="Filter providers who have availability at this clinic"),
     department_id: Optional[int] = Query(None, description="Filter providers by department"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(oauth.get_current_user)
 ):
     query = db.query(models.Provider)
 
@@ -49,7 +50,7 @@ def get_providers(
 
 
 @router.get("/providers/{provider_id}", response_model=schemas.Provider)
-def get_provider(provider_id: int, db: Session = Depends(get_db)):
+def get_provider(provider_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
     provider = db.query(models.Provider).filter(models.Provider.id == provider_id).first()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -57,7 +58,7 @@ def get_provider(provider_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/providers/{provider_id}")
-def delete_provider(provider_id: int, db: Session = Depends(get_db)):
+def delete_provider(provider_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
     provider = db.query(models.Provider).filter(models.Provider.id == provider_id).first()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")

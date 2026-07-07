@@ -24,7 +24,7 @@ VALID_TRANSITIONS = {
 def create_appointment(
     appointment: schemas.AppointmentCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "provider", "fd_staff"))
+    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "patient"))
 ):
     # check provider isn't already booked at this time on this date
     conflict = db.query(models.Appointment).filter(
@@ -56,7 +56,7 @@ def create_appointment(
 @router.get("/appointments", response_model=list[schemas.Appointment])
 def get_appointments(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.get_current_user)
+    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))
 ):
     return db.query(models.Appointment).all()
 
@@ -65,7 +65,7 @@ def get_appointments(
 def get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.get_current_user)
+    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider"))
 ):
     appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if not appointment:
@@ -78,7 +78,7 @@ def update_appointment_status(
     appointment_id: int,
     updates: schemas.AppointmentUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "provider", "fd_staff"))
+    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider", "patient"))
 ):
     appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if not appointment:
@@ -88,12 +88,27 @@ def update_appointment_status(
     if new_status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
 
+    # Check the status transition is valid
     allowed = VALID_TRANSITIONS.get(appointment.status, set())
     if new_status not in allowed:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot transition from '{appointment.status}' to '{new_status}'"
         )
+
+    # Check the user's role is allowed to perform this specific transition
+    ROLE_ALLOWED_TRANSITIONS = {
+        "confirmed":  {"admin", "fd_staff", "provider"},
+        "checked_in": {"admin", "fd_staff"},
+        "in_progress":{"admin", "fd_staff", "provider"},
+        "completed":  {"admin", "fd_staff", "provider"},
+        "no_show":    {"admin", "fd_staff", "provider"},
+        "cancelled":  {"admin", "fd_staff", "provider", "patient"},
+        "failed":     {"admin"},
+    }
+    allowed_roles = ROLE_ALLOWED_TRANSITIONS.get(new_status, set())
+    if not any(r in allowed_roles for r in current_user.roles):
+        raise HTTPException(status_code=403, detail=f"Your role is not allowed to set status to '{new_status}'")
 
     appointment.status = new_status
     db.commit()

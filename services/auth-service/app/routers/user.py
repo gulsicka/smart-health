@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/users", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
     existing = db.query(models.User).filter(models.User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -32,12 +32,12 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
 
 
 @router.get("/users", response_model=list[schemas.User])
-def get_users(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
+def get_users(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
     return db.query(models.User).all()
 
 
 @router.get("/users/{user_id}", response_model=schemas.User)
-def get_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.get_current_user)):
+def get_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
