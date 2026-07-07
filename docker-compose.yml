@@ -53,7 +53,26 @@ services:
     volumes:
       - provider_postgres_data:/var/lib/postgresql
 
+  appointment-service:
+    build: ./services/appointment-service
+    ports: ["8004:8000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:password@appointment-db:5432/appointment_db
+    depends_on:
+      - appointment-db
+
+  appointment-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: appointment_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - appointment_postgres_data:/var/lib/postgresql
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
   provider_postgres_data:
+  appointment_postgres_data:

@@ -22,3 +22,8 @@ the unique constrait will terminate the query as soon as the commit is initiated
 
 7- DB schema: ![alt text](IMG_0208.jpeg)
 
+8- transitions for appointment status
+requested -> confirmed / cancelled / failed
+confirmed -> checked_in / cancelled / no_show
+checked_in -> in_progress / cancelled
+in_progress -> completed / cancelled
