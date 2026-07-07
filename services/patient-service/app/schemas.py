@@ -11,6 +11,7 @@ class TokenData(BaseModel):
 
 class PatientBase(BaseModel):
     date_of_birth: datetime
+    user_id: int
 
 
 class PatientCreate(PatientBase):
@@ -23,7 +24,6 @@ class PatientUpdate(BaseModel):
 
 class Patient(PatientBase):
     id: int
-    user_id: int
 
     class Config:
         from_attributes = True

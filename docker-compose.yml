@@ -4,16 +4,18 @@ services:
     ports: ["8001:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@auth-db:5432/auth_db
+      TEMPORAL_HOST: temporal:7233
     depends_on:
       - auth-db
+    env_file:
+    - ./services/auth-service/.env
 
   auth-db:
     image: postgres
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: auth_db
-    ports:
-      - "5433:5432"
+    ports: ["5433:5432"]
     volumes:
       - auth_postgres_data:/var/lib/postgresql
 
@@ -30,8 +32,7 @@ services:
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: patient_db
-    ports:
-      - "5434:5432"
+    ports: ["5434:5432"]
     volumes:
       - patient_postgres_data:/var/lib/postgresql
 
@@ -48,8 +49,7 @@ services:
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: provider_db
-    ports:
-      - "5435:5432"
+    ports: ["5435:5432"]
     volumes:
       - provider_postgres_data:/var/lib/postgresql
 
@@ -66,13 +66,60 @@ services:
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: appointment_db
-    ports:
-      - "5436:5432"
+    ports: ["5436:5432"]
     volumes:
       - appointment_postgres_data:/var/lib/postgresql
+      
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports: ["7233:7233"]
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=temporal-db
+    depends_on:
+      - temporal-db
+
+  temporal-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: temporal_db
+    ports:  ["5437:5432"]
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    ports: ["8080:8080"]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+  temporal-workflow:
+    build: ./services/temporal-workflow
+    environment:
+      - TEMPORAL_HOST=temporal:7233
+      - PATIENT_SERVICE_URL=http://patient-service:8000 
+      - PROVIDER_SERVICE_URL=http://provider-service:8000
+      - SYSTEM_EMAIL=admin@smarthealth.com
+      - SYSTEM_PASSWORD=admin
+      - AUTH_SERVICE_URL=http://auth-service:8000
+
+    depends_on:
+      - temporal
+      - auth-db
+      - patient-service
+      - provider-service
+
+    env_file:
+    - ./services/temporal-workflow/.env
 
 volumes:
   auth_postgres_data:
   patient_postgres_data:
   provider_postgres_data:
   appointment_postgres_data:
+  temporal_postgres_data:

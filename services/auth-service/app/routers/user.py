@@ -1,14 +1,21 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, utils, oauth
+from app.utils import workflow_id_for
+from temporalio.client import Client
+
+TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
+TASK_QUEUE = os.getenv("TASK_QUEUE")
 
 router = APIRouter()
 
 
 @router.post("/users", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
+async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
     existing = db.query(models.User).filter(models.User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -27,6 +34,26 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    client = await Client.connect(TEMPORAL_HOST)
+
+    workflow_id = workflow_id_for(db_user.id)
+
+    handle = await client.start_workflow(
+        "UserCreationWorkflow",
+        {
+        "id": db_user.id,
+        "roles": [r.role_name for r in db_user.roles],
+        "date_of_birth": user.date_of_birth.isoformat() if user.date_of_birth else None,
+    },
+        id=workflow_id,
+        task_queue=TASK_QUEUE,
+    )
+
+    print(f"Workflow started! ID: {handle.id}")
+
+   # await handle.result() (dont make user wait)
+
     print(f"User {current_user.user_id} created user {db_user.email}")
     return db_user
 

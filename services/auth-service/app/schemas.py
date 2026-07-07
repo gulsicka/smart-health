@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 
@@ -24,6 +24,7 @@ class UserBase(BaseModel):
     name: str
     email: EmailStr
     number: Optional[str] = None
+    date_of_birth: Optional[date] = None
     role_ids: list[int]
 
 class UserCreate(UserBase):

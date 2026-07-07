@@ -32,7 +32,6 @@ class Provider(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, unique=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     department = relationship("Department")
     availability = relationship("ProviderAvailability", back_populates="provider")
 

@@ -8,3 +8,4 @@ pydantic[email]
 bcrypt
 python-jose[cryptography]
 python-multipart
+temporalio

@@ -5,3 +5,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+
+def workflow_id_for(user_id: str) -> str:
+    return f"user-creation-{user_id}"
