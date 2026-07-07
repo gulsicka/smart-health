@@ -1,6 +1,11 @@
-from pydantic import BaseModel, EmailStr
-from datetime import datetime
-from typing import Optional, List
+from pydantic import BaseModel
+from datetime import datetime, time
+from typing import Optional
+
+
+class TokenData(BaseModel):
+    user_id: int
+    roles: list[str]
 
 
 class DepartmentBase(BaseModel):
@@ -15,18 +20,6 @@ class Department(DepartmentBase):
         from_attributes = True
 
 
-class SpecialtyBase(BaseModel):
-    name: str
-
-class SpecialtyCreate(SpecialtyBase):
-    pass
-
-class Specialty(SpecialtyBase):
-    id: int
-    class Config:
-        from_attributes = True
-
-
 class ClinicBase(BaseModel):
     name: str
     address: str
@@ -36,41 +29,43 @@ class ClinicCreate(ClinicBase):
 
 class Clinic(ClinicBase):
     id: int
+    departments: list[Department] = []
     class Config:
         from_attributes = True
 
 
+class ClinicAddDepartment(BaseModel):
+    department_id: int
+
+
 class ProviderBase(BaseModel):
-    name: str
-    email: EmailStr
     user_id: int
-    department_id: Optional[int] = None
+    department_id: int
 
 class ProviderCreate(ProviderBase):
     pass
 
 class ProviderUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    department_id: Optional[int] = None
+    pass
 
 class Provider(ProviderBase):
     id: int
+    created_at: datetime
     class Config:
         from_attributes = True
 
 
-class SlotBase(BaseModel):
+class ProviderAvailabilityBase(BaseModel):
     provider_id: int
     clinic_id: int
-    start_time: datetime
-    end_time: datetime
+    day_of_week: str   # "Monday", "Tuesday", etc.
+    start_time: time
+    end_time: time
 
-class SlotCreate(SlotBase):
+class ProviderAvailabilityCreate(ProviderAvailabilityBase):
     pass
 
-class Slot(SlotBase):
+class ProviderAvailability(ProviderAvailabilityBase):
     id: int
-    is_available: bool
     class Config:
         from_attributes = True
