@@ -25,6 +25,7 @@ class UserBase(BaseModel):
     email: EmailStr
     number: Optional[str] = None
     date_of_birth: Optional[date] = None
+    department_id: Optional[int] = None
     role_ids: list[int]
 
 class UserCreate(UserBase):

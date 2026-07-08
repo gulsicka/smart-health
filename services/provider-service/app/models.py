@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Time, UniqueConstraint, Table
+from ctypes import ARRAY
+
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Time, UniqueConstraint, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -32,6 +34,7 @@ class Provider(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, unique=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    working_days = Column(ARRAY(String), nullable=False)
     department = relationship("Department")
     availability = relationship("ProviderAvailability", back_populates="provider")
 
@@ -41,13 +44,13 @@ class ProviderAvailability(Base):
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    day_of_week = Column(String, nullable=False)   # "Monday", "Tuesday", etc.
+    date = Column(Date, nullable=False)   
     start_time = Column(Time, nullable=False)       # e.g. 12:00
     end_time = Column(Time, nullable=False)         # e.g. 18:00
 
     # A provider can only have one window per clinic per day
     __table_args__ = (
-        UniqueConstraint("provider_id", "clinic_id", "day_of_week", name="uq_provider_clinic_day"),
+        UniqueConstraint("provider_id", "clinic_id", "date", name="uq_provider_clinic_day"),
     )
 
     provider = relationship("Provider", back_populates="availability")

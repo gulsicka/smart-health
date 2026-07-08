@@ -1,7 +1,8 @@
-from pydantic import BaseModel
-from datetime import datetime, time
+from pydantic import BaseModel, validator
+from datetime import datetime, time, date
 from typing import Optional
 
+VALID_DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
 class TokenData(BaseModel):
     user_id: int
@@ -41,16 +42,26 @@ class ClinicAddDepartment(BaseModel):
 class ProviderBase(BaseModel):
     user_id: int
     department_id: int
+    working_days: list[str] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
 class ProviderCreate(ProviderBase):
     pass
 
 class ProviderUpdate(BaseModel):
-    pass
+    department_id: Optional[int] = None
+    working_days: Optional[list[str]] = None
+    
+    @validator("working_days")
+    def validate_days(cls, days):
+        if days is None:
+            return days
+        invalid = set(days) - VALID_DAYS
+        if invalid:
+            raise ValueError(f"Invalid days: {invalid}")
+        return days
 
 class Provider(ProviderBase):
     id: int
-    created_at: datetime
     class Config:
         from_attributes = True
 
@@ -58,7 +69,7 @@ class Provider(ProviderBase):
 class ProviderAvailabilityBase(BaseModel):
     provider_id: int
     clinic_id: int
-    day_of_week: str   # "Monday", "Tuesday", etc.
+    date: date   # "Monday", "Tuesday", etc.
     start_time: time
     end_time: time
 

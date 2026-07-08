@@ -33,19 +33,19 @@ def set_availability(
     # Ensure provider isn't already assigned to another clinic on the same day
     conflict = db.query(models.ProviderAvailability).filter(
         models.ProviderAvailability.provider_id == provider_id,
-        models.ProviderAvailability.day_of_week == avail.day_of_week,
+        models.ProviderAvailability.date == avail.date,
         models.ProviderAvailability.clinic_id != avail.clinic_id,
     ).first()
     if conflict:
         raise HTTPException(
             status_code=400,
-            detail=f"Provider already has availability at a different clinic on {avail.day_of_week}"
+            detail=f"Provider already has availability at a different clinic on {avail.date}"
         )
 
     db_avail = models.ProviderAvailability(
         provider_id=provider_id,
         clinic_id=avail.clinic_id,
-        day_of_week=avail.day_of_week,
+        date=avail.date,
         start_time=avail.start_time,
         end_time=avail.end_time,
     )

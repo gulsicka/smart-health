@@ -9,7 +9,7 @@ from app.utils import workflow_id_for
 from temporalio.client import Client
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
-TASK_QUEUE = os.getenv("TASK_QUEUE")
+TASK_QUEUE = os.getenv("USER_TASK_QUEUE")
 
 router = APIRouter()
 
@@ -45,6 +45,7 @@ async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), c
         "id": db_user.id,
         "roles": [r.role_name for r in db_user.roles],
         "date_of_birth": user.date_of_birth.isoformat() if user.date_of_birth else None,
+        "department_id": user.department_id,
     },
         id=workflow_id,
         task_queue=TASK_QUEUE,

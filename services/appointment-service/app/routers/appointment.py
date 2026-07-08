@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from temporalio.client import Client
+from app.utils import workflow_id_for
+import os
 from sqlalchemy.orm import Session
 from datetime import date as date_type
 from app.database import get_db
 from app import models, schemas, oauth
+
+TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
 
 router = APIRouter()
 
@@ -20,32 +25,41 @@ VALID_TRANSITIONS = {
 }
 
 
-@router.post("/appointments", response_model=schemas.Appointment)
-def create_appointment(
+@router.post("/appointments")
+async def create_appointment(
     appointment: schemas.AppointmentCreate,
-    db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "patient"))
 ):
-    # check provider isn't already booked at this time on this date
-    conflict = db.query(models.Appointment).filter(
-        models.Appointment.provider_id == appointment.provider_id,
-        models.Appointment.date == appointment.date,
-        models.Appointment.status.in_(["requested", "confirmed", "checked_in", "in_progress"]),
-        models.Appointment.start_time < appointment.end_time,
-        models.Appointment.end_time > appointment.start_time,
-    ).first()
-    if conflict:
-        raise HTTPException(status_code=409, detail="Provider already has an appointment in this time slot")
+    
+    client = await Client.connect(TEMPORAL_HOST)
+    
+    workflow_id = workflow_id_for(f"{appointment.patient_id}-{appointment.provider_id}-{appointment.date}-{appointment.start_time}") # same patient cant nook an appointment with same provider at same time
+    
+    handle = await client.start_workflow(
+        "AppointmentValidationWorkflow",
+        {
+            "patient_id": appointment.patient_id,
+            "provider_id": appointment.provider_id,
+            "clinic_id": appointment.clinic_id,
+            "department_id": appointment.department_id,
+            "date": appointment.date.isoformat(),
+            "start_time": appointment.start_time.isoformat(),
+            "end_time": appointment.end_time.isoformat(),
+        },
+        id=workflow_id,
+        task_queue=os.getenv("APPOINTMENT_TASK_QUEUE", "appointment_validation_queue"),
+    )
+    
+    return {"message": "Appointment request received", "workflow_id": handle.id}
 
+@router.post("/appointments/internal", response_model=schemas.Appointment)
+def create_appointment_internal(
+    appointment: schemas.AppointmentCreate,
+    db: Session = Depends(get_db)
+):
     db_appointment = models.Appointment(
-        patient_id=appointment.patient_id,
-        provider_id=appointment.provider_id,
-        clinic_id=appointment.clinic_id,
-        department_id=appointment.department_id,
-        date=appointment.date,
-        start_time=appointment.start_time,
-        end_time=appointment.end_time,
-        status="requested",
+        **appointment.model_dump(),
+        status="confirmed",  # already validated, goes straight to confirmed
     )
     db.add(db_appointment)
     db.commit()
