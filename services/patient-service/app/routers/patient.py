@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, oauth
+from app.enums import RoleName
 
 router = APIRouter()
 
+R = RoleName
 
 @router.post("/patients", response_model=schemas.Patient)
-def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
+def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF))):
     existing = db.query(models.Patient).filter(models.Patient.user_id == patient.user_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Patient profile already exists for this user")
@@ -19,12 +21,12 @@ def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)
 
 
 @router.get("/patients", response_model=list[schemas.Patient])
-def get_patients(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider"))):
+def get_patients(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER))):
     return db.query(models.Patient).all()
 
 
 @router.get("/patients/{patient_id}", response_model=schemas.Patient)
-def get_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider"))):
+def get_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER))):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -32,7 +34,7 @@ def get_patient(patient_id: int, db: Session = Depends(get_db), current_user: sc
 
 
 @router.put("/patients/{patient_id}", response_model=schemas.Patient)
-def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
+def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF))):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -44,7 +46,7 @@ def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session 
 
 
 @router.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def delete_patient(patient_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN))):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")

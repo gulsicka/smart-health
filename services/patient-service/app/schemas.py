@@ -1,11 +1,12 @@
 from pydantic import BaseModel
+from app.enums import RoleName
 from datetime import datetime
 from typing import Optional
 
 
 class TokenData(BaseModel):
     user_id: int
-    roles: list[str]
+    roles: list[RoleName]
 
 
 

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, utils, oauth
 from app.utils import workflow_id_for
+from app.enums import RoleName
 from temporalio.client import Client
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
@@ -15,7 +16,7 @@ router = APIRouter()
 
 
 @router.post("/users", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))):
+async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF))):
     existing = db.query(models.User).filter(models.User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -60,12 +61,12 @@ async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), c
 
 
 @router.get("/users", response_model=list[schemas.User])
-def get_users(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def get_users(db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     return db.query(models.User).all()
 
 
 @router.get("/users/{user_id}", response_model=schemas.User)
-def get_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def get_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -73,7 +74,7 @@ def get_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.
 
 
 @router.put("/users/{user_id}", response_model=schemas.User)
-def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -96,7 +97,7 @@ def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends
 
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

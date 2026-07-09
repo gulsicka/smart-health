@@ -6,29 +6,30 @@ from sqlalchemy.orm import Session
 from datetime import date as date_type
 from app.database import get_db
 from app import models, schemas, oauth
+from app.enums import AppointmentStatus, RoleName
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
 
 router = APIRouter()
 
-VALID_STATUSES = {"requested", "confirmed", "checked_in", "in_progress", "completed", "no_show", "cancelled", "failed"}
+S = AppointmentStatus  # shorthand
 
 VALID_TRANSITIONS = {
-    "requested":   {"confirmed", "cancelled", "failed"},
-    "confirmed":   {"checked_in", "cancelled", "no_show"},
-    "checked_in":  {"in_progress", "cancelled"},
-    "in_progress": {"completed", "cancelled"},
-    "completed":   set(),
-    "no_show":     set(),
-    "cancelled":   set(),
-    "failed":      set(),
+    S.REQUESTED:   {S.CONFIRMED, S.CANCELLED, S.FAILED},
+    S.CONFIRMED:   {S.CHECKED_IN, S.CANCELLED, S.NO_SHOW},
+    S.CHECKED_IN:  {S.IN_PROGRESS, S.CANCELLED},
+    S.IN_PROGRESS: {S.COMPLETED, S.CANCELLED},
+    S.COMPLETED:   set(),
+    S.NO_SHOW:     set(),
+    S.CANCELLED:   set(),
+    S.FAILED:      set(),
 }
 
 
 @router.post("/appointments")
 async def create_appointment(
     appointment: schemas.AppointmentCreate,
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "patient"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT))
 ):
     
     client = await Client.connect(TEMPORAL_HOST)
@@ -59,7 +60,7 @@ def create_appointment_internal(
 ):
     db_appointment = models.Appointment(
         **appointment.model_dump(),
-        status="confirmed",  # already validated, goes straight to confirmed
+        status=S.CONFIRMED,  # already validated, goes straight to confirmed
     )
     db.add(db_appointment)
     db.commit()
@@ -70,7 +71,7 @@ def create_appointment_internal(
 @router.get("/appointments", response_model=list[schemas.Appointment])
 def get_appointments(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF))
 ):
     return db.query(models.Appointment).all()
 
@@ -79,7 +80,7 @@ def get_appointments(
 def get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER))
 ):
     appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if not appointment:
@@ -92,18 +93,16 @@ def update_appointment_status(
     appointment_id: int,
     updates: schemas.AppointmentUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin", "fd_staff", "provider", "patient"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT))
 ):
     appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    new_status = updates.status
-    if new_status not in VALID_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
+    new_status = updates.status  # already validated by Pydantic as AppointmentStatus
 
     # Check the status transition is valid
-    allowed = VALID_TRANSITIONS.get(appointment.status, set())
+    allowed = VALID_TRANSITIONS.get(S(appointment.status), set())
     if new_status not in allowed:
         raise HTTPException(
             status_code=400,
@@ -112,13 +111,13 @@ def update_appointment_status(
 
     # Check the user's role is allowed to perform this specific transition
     ROLE_ALLOWED_TRANSITIONS = {
-        "confirmed":  {"admin", "fd_staff", "provider"},
-        "checked_in": {"admin", "fd_staff"},
-        "in_progress":{"admin", "fd_staff", "provider"},
-        "completed":  {"admin", "fd_staff", "provider"},
-        "no_show":    {"admin", "fd_staff", "provider"},
-        "cancelled":  {"admin", "fd_staff", "provider", "patient"},
-        "failed":     {"admin"},
+        S.CONFIRMED:   {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
+        S.CHECKED_IN:  {RoleName.ADMIN, RoleName.FD_STAFF},
+        S.IN_PROGRESS: {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
+        S.COMPLETED:   {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
+        S.NO_SHOW:     {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
+        S.CANCELLED:   {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT},
+        S.FAILED:      {RoleName.ADMIN},
     }
     allowed_roles = ROLE_ALLOWED_TRANSITIONS.get(new_status, set())
     if not any(r in allowed_roles for r in current_user.roles):
@@ -147,7 +146,7 @@ def get_booked_slots(
         models.Appointment.provider_id == provider_id,
         models.Appointment.date == date,
         models.Appointment.clinic_id == clinic_id,
-        models.Appointment.status.in_(["requested", "confirmed", "checked_in", "in_progress"]),
+        models.Appointment.status.in_([S.REQUESTED, S.CONFIRMED, S.CHECKED_IN, S.IN_PROGRESS]),
     ).all()
 
     return [
@@ -165,7 +164,7 @@ def get_booked_slots(
 def delete_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))
 ):
     appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if not appointment:

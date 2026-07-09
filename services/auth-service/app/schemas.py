@@ -1,15 +1,16 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, date
 from typing import Optional
+from app.enums import RoleName
 
 
 class TokenData(BaseModel):
     user_id: int
-    roles: list[str]
+    roles: list[RoleName]
 
 
 class RoleBase(BaseModel):
-    role_name: str
+    role_name: RoleName
 
 class RoleCreate(RoleBase):
     pass

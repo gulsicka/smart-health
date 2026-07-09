@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, oauth
+from app.enums import RoleName
 
 router = APIRouter()
 
 @router.post("/roles", response_model=schemas.Role)
-def create_role(role: schemas.RoleCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def create_role(role: schemas.RoleCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     existing = db.query(models.Role).filter(models.Role.role_name == role.role_name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Role already exists")
@@ -24,7 +25,7 @@ def get_roles(db: Session = Depends(get_db), current_user: schemas.TokenData = D
 
 
 @router.delete("/roles/{role_id}")
-def delete_role(role_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def delete_role(role_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     role = db.query(models.Role).filter(models.Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")

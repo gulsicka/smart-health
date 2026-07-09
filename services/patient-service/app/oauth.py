@@ -1,6 +1,7 @@
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from . import schemas
+from .enums import RoleName
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
@@ -33,7 +34,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     return verify_access_token(token, credentials_exception)
 
 
-def require_role(*roles: str):
+def require_role(*roles: RoleName):
     def dependency(current_user: schemas.TokenData = Depends(get_current_user)):
         if not any(r in roles for r in current_user.roles):
             raise HTTPException(
@@ -42,4 +43,3 @@ def require_role(*roles: str):
             )
         return current_user
     return dependency
-

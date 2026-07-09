@@ -1,4 +1,5 @@
 from pydantic import BaseModel, validator
+from app.enums import RoleName
 from datetime import datetime, time, date
 from typing import Optional
 
@@ -6,7 +7,7 @@ VALID_DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 
 class TokenData(BaseModel):
     user_id: int
-    roles: list[str]
+    roles: list[RoleName]
 
 
 class DepartmentBase(BaseModel):

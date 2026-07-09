@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
 from app import models, schemas, oauth
+from app.enums import RoleName
 from temporalio.client import Client
 import os
 
@@ -13,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/providers", response_model=schemas.Provider)
-def create_provider(provider: schemas.ProviderCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def create_provider(provider: schemas.ProviderCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     # Validate department exists
     department = db.query(models.Department).filter(models.Department.id == provider.department_id).first()
     if not department:
@@ -63,7 +64,7 @@ def get_provider(provider_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.delete("/providers/{provider_id}")
-def delete_provider(provider_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def delete_provider(provider_id: int, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))):
     provider = db.query(models.Provider).filter(models.Provider.id == provider_id).first()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -84,7 +85,7 @@ async def setup_provider_availability(
     provider_id: int,
     body: schemas.ProviderAvailabilitySetup,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN))
 ):
     provider = db.query(models.Provider).filter(models.Provider.id == provider_id).first()
     if not provider:

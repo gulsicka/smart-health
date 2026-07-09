@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, oauth
+from app.enums import RoleName
 
 router = APIRouter()
 
+R = RoleName
 
 @router.post("/clinics", response_model=schemas.Clinic)
-def create_clinic(clinic: schemas.ClinicCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role("admin"))):
+def create_clinic(clinic: schemas.ClinicCreate, db: Session = Depends(get_db), current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN))):
     db_clinic = models.Clinic(**clinic.model_dump())
     db.add(db_clinic)
     db.commit()
@@ -33,7 +35,7 @@ def add_department_to_clinic(
     clinic_id: int,
     body: schemas.ClinicAddDepartment,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN))
 ):
     clinic = db.query(models.Clinic).filter(models.Clinic.id == clinic_id).first()
     if not clinic:
@@ -54,7 +56,7 @@ def remove_department_from_clinic(
     clinic_id: int,
     department_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role("admin"))
+    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN))
 ):
     clinic = db.query(models.Clinic).filter(models.Clinic.id == clinic_id).first()
     if not clinic:

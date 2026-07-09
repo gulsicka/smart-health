@@ -1,11 +1,13 @@
 from pydantic import BaseModel
+from app.enums import RoleName, AppointmentStatus
 from datetime import datetime, date, time
 from typing import Optional
 
 
+
 class TokenData(BaseModel):
     user_id: int
-    roles: list[str]
+    roles: list[RoleName]
 
 
 class AppointmentCreate(BaseModel):
@@ -19,12 +21,12 @@ class AppointmentCreate(BaseModel):
 
 
 class AppointmentUpdate(BaseModel):
-    status: Optional[str] = None
+    status: Optional[AppointmentStatus] = None
 
 
 class Appointment(AppointmentCreate):
     id: int
-    status: str
+    status: AppointmentStatus
     created_at: datetime
     updated_at: datetime
 
@@ -36,4 +38,4 @@ class BookedSlot(BaseModel):
     appointment_id: int
     start_time: time
     end_time: time
-    status: str
+    status: AppointmentStatus
