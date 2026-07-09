@@ -11,6 +11,7 @@ with workflow.unsafe.imports_passed_through():
         check_provider_availability,
         check_for_appointment_conflict,
         failed_workflow,
+        setup_provider_availability,
     )
 
 @workflow.defn
@@ -26,12 +27,14 @@ class UserCreationWorkflow:
                     create_patient_record,
                     user_data,
                     start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
                 )
             if "provider" in user_data["roles"]:
                 await workflow.execute_activity(
                     create_provider_record,
                     user_data,
                     start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
                 )
             
             print("Workflow completed")
@@ -44,6 +47,28 @@ class UserCreationWorkflow:
             )
             raise  # marks workflow as failed in Temporal UI
         
+@workflow.defn
+class ProviderAvailabilityWorkflow:
+    @workflow.run
+    async def run(self, data: dict):
+        try:
+            await workflow.execute_activity(
+                setup_provider_availability,
+                data,
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            print(f"Provider availability setup complete for provider {data['provider_id']} at clinic {data['clinic_id']}")
+        except Exception as e:
+            await workflow.execute_activity(
+                failed_workflow,
+                {"error": str(e), **data},
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+            raise
+
+
 @workflow.defn
 class AppointmentValidationWorkflow:
     @workflow.run

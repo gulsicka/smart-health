@@ -42,23 +42,12 @@ class ClinicAddDepartment(BaseModel):
 class ProviderBase(BaseModel):
     user_id: int
     department_id: int
-    working_days: list[str] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
 class ProviderCreate(ProviderBase):
     pass
 
 class ProviderUpdate(BaseModel):
     department_id: Optional[int] = None
-    working_days: Optional[list[str]] = None
-    
-    @validator("working_days")
-    def validate_days(cls, days):
-        if days is None:
-            return days
-        invalid = set(days) - VALID_DAYS
-        if invalid:
-            raise ValueError(f"Invalid days: {invalid}")
-        return days
 
 class Provider(ProviderBase):
     id: int
@@ -80,3 +69,10 @@ class ProviderAvailability(ProviderAvailabilityBase):
     id: int
     class Config:
         from_attributes = True
+
+
+class ProviderAvailabilitySetup(BaseModel):
+    clinic_id: int
+    working_days: list[str]
+    start_time: str  # "HH:MM:SS"
+    end_time: str    

@@ -42,6 +42,7 @@ services:
     ports: ["8003:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
+      PROVIDER_TASK_QUEUE: provider_availability_queue
     depends_on:
       - provider-db
 
@@ -112,6 +113,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8000
       - USER_TASK_QUEUE=user_creation_queue
       - APPOINTMENT_TASK_QUEUE=appointment_validation_queue
+      - PROVIDER_TASK_QUEUE=provider_availability_queue
 
     depends_on:
       - temporal

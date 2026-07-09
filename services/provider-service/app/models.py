@@ -1,5 +1,3 @@
-from ctypes import ARRAY
-
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Time, UniqueConstraint, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -34,7 +32,6 @@ class Provider(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, unique=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
-    working_days = Column(ARRAY(String), nullable=False)
     department = relationship("Department")
     availability = relationship("ProviderAvailability", back_populates="provider")
 

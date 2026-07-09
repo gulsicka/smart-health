@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from temporalio import activity
 import httpx, os
 
@@ -58,7 +60,7 @@ async def create_provider_record(user_data: dict):
     await make_request(
         "post",
         f"{os.getenv('PROVIDER_SERVICE_URL')}/providers",
-        json={"user_id": user_data["id"], "department_id": user_data.get("department_id")}
+        json={"user_id": user_data["id"], "department_id": user_data.get("department_id")},
     )
 
 
@@ -106,3 +108,27 @@ async def check_for_appointment_conflict(appointment: dict):
 @activity.defn
 async def failed_workflow(data: dict):
     print(f"Workflow failed: {data.get('error')}")
+    
+@activity.defn
+async def setup_provider_availability(data: dict):
+    provider_id = data["provider_id"]
+    clinic_id = data["clinic_id"]
+    working_days = data["working_days"]
+    start_time = data["start_time"]
+    end_time = data["end_time"]
+
+    today = date.today()
+    for i in range(30):
+        d = today + timedelta(days=i)
+        if d.strftime("%A") in working_days:
+            await make_request(
+                "post",
+                f"{os.getenv('PROVIDER_SERVICE_URL')}/providers/{provider_id}/availability",
+                json={
+                    "provider_id": provider_id,
+                    "clinic_id": clinic_id,
+                    "date": d.isoformat(),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
