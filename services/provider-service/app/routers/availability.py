@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app import schemas, oauth, crud
+from app import schemas, auth, crud
 from app.enums import RoleName
 
 router = APIRouter()
@@ -16,7 +16,7 @@ def set_availability(
     provider_id: int,
     avail: schemas.ProviderAvailabilityCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
     provider = crud.get_provider_by_id(db, provider_id)
     if not provider:
@@ -42,7 +42,7 @@ def set_availability(
 def get_availability(
     provider_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.get_current_user),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
 ):
     return crud.get_availability_by_provider(db, provider_id)
 
@@ -52,7 +52,7 @@ def delete_availability(
     provider_id: int,
     availability_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
     avail = crud.get_availability_by_id(db, provider_id, availability_id)
     if not avail:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import schemas, oauth, crud
+from app import schemas, auth, crud
 from app.enums import RoleName
 
 router = APIRouter()
@@ -14,7 +14,7 @@ R = RoleName
 def create_patient(
     patient: schemas.PatientCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF)),
 ):
     if crud.get_patient_by_user_id(db, patient.user_id):
         raise HTTPException(status_code=400, detail="Patient profile already exists for this user")
@@ -24,7 +24,7 @@ def create_patient(
 @router.get("/patients", response_model=list[schemas.Patient])
 def get_patients(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER)),
 ):
     return crud.get_all_patients(db)
 
@@ -33,7 +33,7 @@ def get_patients(
 def get_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER)),
 ):
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
@@ -46,7 +46,7 @@ def update_patient(
     patient_id: int,
     updates: schemas.PatientUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN, R.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF)),
 ):
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
@@ -58,7 +58,7 @@ def update_patient(
 def delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
@@ -71,7 +71,7 @@ def delete_patient(
 def delete_patient_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
     crud.delete_patient_by_user_id(db, user_id)
     return {"message": "Patient deleted"}  # idempotent - 200 even if not found

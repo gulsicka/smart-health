@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import schemas, utils, oauth, crud, tasks
+from app import schemas, utils, auth, crud, tasks
 from app.utils import workflow_id_for
 from app.enums import RoleName, UserStatus
 
@@ -14,7 +13,7 @@ router = APIRouter()
 async def create_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     if crud.get_user_by_email(db, user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -50,7 +49,7 @@ async def create_user(
 @router.get("/users", response_model=list[schemas.User])
 def get_users(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     return crud.get_all_users(db)
 
@@ -59,7 +58,7 @@ def get_users(
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:
@@ -72,7 +71,7 @@ def update_user(
     user_id: int,
     updates: schemas.UserUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:
@@ -91,7 +90,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:
@@ -102,16 +101,16 @@ def delete_user(
 
 @router.post("/login")
 def login(
-    credentials: OAuth2PasswordRequestForm = Depends(),
+    credentials: schemas.LoginRequest,
     db: Session = Depends(get_db),
 ):
-    user = crud.get_user_by_email(db, credentials.username)
+    user = crud.get_user_by_email(db, credentials.email)
     if not user or not utils.verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid email or password")
     if user.status == UserStatus.PENDING:
         raise HTTPException(status_code=403, detail="Account setup is still in progress")
 
-    access_token = oauth.create_access_token(data={
+    access_token = auth.create_access_token(data={
         "user_id": user.id,
         "roles": [r.role_name for r in user.roles],
     })
@@ -123,7 +122,7 @@ def login(
 def activate_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import schemas, oauth, crud
+from app import schemas, auth, crud
 from app.enums import RoleName
 
 router = APIRouter()
@@ -12,7 +12,7 @@ router = APIRouter()
 def create_role(
     role: schemas.RoleCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     if crud.get_role_by_name(db, role.role_name):
         raise HTTPException(status_code=400, detail="Role already exists")
@@ -24,7 +24,7 @@ def create_role(
 @router.get("/roles", response_model=list[schemas.Role])
 def get_roles(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.get_current_user),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
 ):
     return crud.get_all_roles(db)
 
@@ -33,7 +33,7 @@ def get_roles(
 def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     role = crud.get_role_by_id(db, role_id)
     if not role:

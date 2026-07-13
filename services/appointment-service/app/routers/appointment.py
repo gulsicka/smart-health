@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import date as date_type
 
 from app.database import get_db
-from app import schemas, oauth, crud, tasks
+from app import schemas, auth, crud, tasks
 from app.utils import workflow_id_for
 from app.enums import AppointmentStatus, RoleName
 
@@ -36,7 +36,7 @@ ROLE_ALLOWED_TRANSITIONS = {
 @router.post("/appointments")
 async def create_appointment(
     appointment: schemas.AppointmentCreate,
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)),
 ):
     workflow_id = workflow_id_for(
         f"{appointment.patient_id}-{appointment.provider_id}-{appointment.date}-{appointment.start_time}"
@@ -67,7 +67,7 @@ def create_appointment_internal(
 @router.get("/appointments", response_model=list[schemas.Appointment])
 def get_appointments(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     return crud.get_all_appointments(db)
 
@@ -76,7 +76,7 @@ def get_appointments(
 def get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
@@ -90,7 +90,7 @@ def update_appointment_status(
     updates: schemas.AppointmentUpdate,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(
-        oauth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT)
+        auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT)
     ),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
@@ -119,7 +119,7 @@ def get_booked_slots(
     date: date_type = Query(..., description="Date to check, e.g. 2026-07-10"),
     clinic_id: int = Query(..., description="Clinic ID"),
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.get_current_user),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
 ):
     booked = crud.get_booked_slots(db, provider_id, date, clinic_id)
     return [
@@ -137,7 +137,7 @@ def get_booked_slots(
 def delete_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(oauth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:

@@ -9,6 +9,11 @@ class TokenData(BaseModel):
     roles: list[RoleName]
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
 class RoleBase(BaseModel):
     role_name: RoleName
 

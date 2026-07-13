@@ -155,8 +155,6 @@ services:
       - patient-service
       - provider-service
       - appointment-service
-    env_file:
-    - ./services/temporal-workflow/.env
 
 volumes:
   auth_postgres_data:
