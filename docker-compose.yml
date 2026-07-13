@@ -6,6 +6,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@auth-db:5432/auth_db
       SECRET_KEY: ${SECRET_KEY}
       TEMPORAL_HOST: temporal:7233
+      TEMPORAL_NAMESPACE: default
       USER_TASK_QUEUE: user_creation_queue
     depends_on:
       auth-db:
@@ -55,8 +56,6 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
       SECRET_KEY: ${SECRET_KEY}
-      TEMPORAL_HOST: temporal:7233
-      PROVIDER_TASK_QUEUE: provider_availability_queue
     depends_on:
       provider-db:
         condition: service_healthy
@@ -82,6 +81,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@appointment-db:5432/appointment_db
       SECRET_KEY: ${SECRET_KEY}
       TEMPORAL_HOST: temporal:7233
+      TEMPORAL_NAMESPACE: default
       APPOINTMENT_TASK_QUEUE: appointment_validation_queue
     depends_on:
       appointment-db:
@@ -140,6 +140,7 @@ services:
     build: ./services/temporal-workflow
     environment:
       - TEMPORAL_HOST=temporal:7233
+      - TEMPORAL_NAMESPACE=default
       - PATIENT_SERVICE_URL=http://patient-service:8000
       - PROVIDER_SERVICE_URL=http://provider-service:8000
       - APPOINTMENT_SERVICE_URL=http://appointment-service:8000
@@ -148,7 +149,6 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8000
       - USER_TASK_QUEUE=user_creation_queue
       - APPOINTMENT_TASK_QUEUE=appointment_validation_queue
-      - PROVIDER_TASK_QUEUE=provider_availability_queue
     depends_on:
       - temporal
       - auth-service

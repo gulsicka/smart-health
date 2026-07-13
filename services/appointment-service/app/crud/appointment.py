@@ -1,9 +1,25 @@
+from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app import models
 from app.enums import AppointmentStatus
 
-S = AppointmentStatus
+
+def create_appointment_internal(db: Session, appointment_data: dict):
+    db_appointment = models.Appointment(**appointment_data)
+    db.add(db_appointment)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Slot already exists — return the existing record (idempotency)
+        return db.query(models.Appointment).filter(
+            models.Appointment.provider_id == appointment_data["provider_id"],
+            models.Appointment.date == appointment_data["date"],
+            models.Appointment.start_time == appointment_data["start_time"],
+        ).first()
+    db.refresh(db_appointment)
+    return db_appointment
 
 
 def get_all_appointments(db: Session):
@@ -14,23 +30,6 @@ def get_appointment_by_id(db: Session, appointment_id: int):
     return db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
 
 
-def create_appointment_internal(db: Session, appointment_data: dict):
-    """Create appointment; return existing record on duplicate (idempotency)."""
-    try:
-        db_appointment = models.Appointment(**appointment_data, status=S.CONFIRMED)
-        db.add(db_appointment)
-        db.commit()
-        db.refresh(db_appointment)
-        return db_appointment
-    except IntegrityError:
-        db.rollback()
-        return db.query(models.Appointment).filter(
-            models.Appointment.provider_id == appointment_data["provider_id"],
-            models.Appointment.date == appointment_data["date"],
-            models.Appointment.start_time == appointment_data["start_time"],
-        ).first()
-
-
 def update_appointment_status(db: Session, appointment: models.Appointment, new_status: AppointmentStatus):
     appointment.status = new_status
     db.commit()
@@ -38,12 +37,12 @@ def update_appointment_status(db: Session, appointment: models.Appointment, new_
     return appointment
 
 
-def get_booked_slots(db: Session, provider_id: int, date, clinic_id: int):
+def get_booked_slots(db: Session, provider_id: int, date: date, clinic_id: int):
     return db.query(models.Appointment).filter(
         models.Appointment.provider_id == provider_id,
         models.Appointment.date == date,
         models.Appointment.clinic_id == clinic_id,
-        models.Appointment.status.in_([S.REQUESTED, S.CONFIRMED, S.CHECKED_IN, S.IN_PROGRESS]),
+        models.Appointment.status.notin_([AppointmentStatus.CANCELLED, AppointmentStatus.FAILED]),
     ).all()
 
 

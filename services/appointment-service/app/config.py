@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     TEMPORAL_HOST: str
+    TEMPORAL_NAMESPACE: str = "default"
     APPOINTMENT_TASK_QUEUE: str
 
 

@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     TEMPORAL_HOST: str
+    TEMPORAL_NAMESPACE: str = "default"
     AUTH_SERVICE_URL: str
     PATIENT_SERVICE_URL: str
     PROVIDER_SERVICE_URL: str
@@ -13,7 +14,6 @@ class Settings(BaseSettings):
     SYSTEM_PASSWORD: str
     USER_TASK_QUEUE: str
     APPOINTMENT_TASK_QUEUE: str
-    PROVIDER_TASK_QUEUE: str
 
 
 settings = Settings()

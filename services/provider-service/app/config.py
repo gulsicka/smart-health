@@ -7,8 +7,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    TEMPORAL_HOST: str
-    PROVIDER_TASK_QUEUE: str
 
 
 settings = Settings()

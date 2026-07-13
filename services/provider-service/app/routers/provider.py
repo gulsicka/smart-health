@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from app.database import get_db
-from app import schemas, auth, crud, tasks
+from app import schemas, auth, crud
 from app.enums import RoleName
 
 router = APIRouter()
@@ -69,8 +70,8 @@ def delete_provider(
     return {"message": "Provider deleted"}
 
 
-@router.post("/providers/{provider_id}/setup-availability", status_code=202)
-async def setup_provider_availability(
+@router.post("/providers/{provider_id}/setup-availability", status_code=201)
+def setup_provider_availability(
     provider_id: int,
     body: schemas.ProviderAvailabilitySetup,
     db: Session = Depends(get_db),
@@ -78,7 +79,17 @@ async def setup_provider_availability(
 ):
     if not crud.get_provider_by_id(db, provider_id):
         raise HTTPException(status_code=404, detail="Provider not found")
-
-    workflow_id = f"provider-availability-{provider_id}-{body.clinic_id}"
-    handle = await tasks.start_provider_availability_workflow(provider_id, body, workflow_id)
-    return {"message": "Provider availability setup started", "workflow_id": handle.id}
+    if not crud.get_clinic_by_id(db, body.clinic_id):
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    try:
+        crud.setup_availability_schedule(
+            db,
+            provider_id=provider_id,
+            clinic_id=body.clinic_id,
+            working_days=body.working_days,
+            start_time=body.start_time,
+            end_time=body.end_time,
+        )
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Some availability slots already exist for this provider")
+    return {"message": "Provider availability set up for the next 30 days"}

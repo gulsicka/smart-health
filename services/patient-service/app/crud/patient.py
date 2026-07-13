@@ -40,4 +40,3 @@ def delete_patient_by_user_id(db: Session, user_id: int):
     if patient:
         db.delete(patient)
         db.commit()
-    return patient
