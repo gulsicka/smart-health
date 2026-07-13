@@ -7,7 +7,8 @@ services:
       TEMPORAL_HOST: temporal:7233
       USER_TASK_QUEUE: user_creation_queue
     depends_on:
-      - auth-db
+      auth-db:
+        condition: service_healthy
     env_file:
     - ./services/auth-service/.env
 
@@ -19,6 +20,11 @@ services:
     ports: ["5433:5432"]
     volumes:
       - auth_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   patient-service:
     build: ./services/patient-service
@@ -26,7 +32,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@patient-db:5432/patient_db
     depends_on:
-      - patient-db
+      patient-db:
+        condition: service_healthy
 
   patient-db:
     image: postgres
@@ -36,6 +43,11 @@ services:
     ports: ["5434:5432"]
     volumes:
       - patient_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d patient_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   provider-service:
     build: ./services/provider-service
@@ -44,7 +56,8 @@ services:
       DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
       PROVIDER_TASK_QUEUE: provider_availability_queue
     depends_on:
-      - provider-db
+      provider-db:
+        condition: service_healthy
 
   provider-db:
     image: postgres
@@ -54,6 +67,11 @@ services:
     ports: ["5435:5432"]
     volumes:
       - provider_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d provider_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   appointment-service:
     build: ./services/appointment-service
@@ -62,7 +80,8 @@ services:
       DATABASE_URL: postgresql://postgres:password@appointment-db:5432/appointment_db
       APPOINTMENT_TASK_QUEUE: appointment_validation_queue
     depends_on:
-      - appointment-db
+      appointment-db:
+        condition: service_healthy
 
   appointment-db:
     image: postgres
@@ -72,7 +91,12 @@ services:
     ports: ["5436:5432"]
     volumes:
       - appointment_postgres_data:/var/lib/postgresql
-      
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appointment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   temporal:
     image: temporalio/auto-setup:latest
     ports: ["7233:7233"]
@@ -83,16 +107,22 @@ services:
       - POSTGRES_PWD=password
       - POSTGRES_SEEDS=temporal-db
     depends_on:
-      - temporal-db
+      temporal-db:
+        condition: service_healthy
 
   temporal-db:
     image: postgres
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: temporal_db
-    ports:  ["5437:5432"]
+    ports: ["5437:5432"]
     volumes:
       - temporal_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d temporal_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   temporal-ui:
     image: temporalio/ui:latest
@@ -101,11 +131,12 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
     depends_on:
       - temporal
+
   temporal-workflow:
     build: ./services/temporal-workflow
     environment:
       - TEMPORAL_HOST=temporal:7233
-      - PATIENT_SERVICE_URL=http://patient-service:8000 
+      - PATIENT_SERVICE_URL=http://patient-service:8000
       - PROVIDER_SERVICE_URL=http://provider-service:8000
       - APPOINTMENT_SERVICE_URL=http://appointment-service:8000
       - SYSTEM_EMAIL=admin@smarthealth.com
@@ -114,13 +145,12 @@ services:
       - USER_TASK_QUEUE=user_creation_queue
       - APPOINTMENT_TASK_QUEUE=appointment_validation_queue
       - PROVIDER_TASK_QUEUE=provider_availability_queue
-
     depends_on:
       - temporal
-      - auth-db
+      - auth-service
       - patient-service
       - provider-service
-
+      - appointment-service
     env_file:
     - ./services/temporal-workflow/.env
 

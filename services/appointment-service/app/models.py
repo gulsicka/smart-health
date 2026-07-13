@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Date, Time
+from sqlalchemy import Column, Integer, String, DateTime, Date, Time, UniqueConstraint
 from datetime import datetime
 from app.database import Base
 
@@ -17,3 +17,7 @@ class Appointment(Base):
     status = Column(String, nullable=False, default="requested")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("provider_id", "date", "start_time", name="uq_provider_slot"), # idemoptency: a provider can only have one appointment at a given date and start_time via the activity to add appointmnet 
+    )

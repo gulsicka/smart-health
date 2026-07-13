@@ -2,8 +2,25 @@ import asyncio
 import os
 from temporalio.client import Client
 from temporalio.worker import Worker
-from workflows import AppointmentValidationWorkflow, UserCreationWorkflow, ProviderAvailabilityWorkflow
-from activities import check_for_appointment_conflict, check_provider_availability, create_patient_record, create_provider_record, validate_appointment_entities, setup_provider_availability, failed_workflow
+
+from workflows.user_creation import UserCreationWorkflow
+from workflows.appointment import AppointmentValidationWorkflow
+from workflows.provider_availability import ProviderAvailabilityWorkflow
+
+from activities.user_creation import (
+    create_patient_record,
+    create_provider_record,
+    activate_user,
+    fail_user,
+    delete_patient_record,
+)
+from activities.appointment import (
+    validate_appointment_entities,
+    check_provider_availability,
+    check_for_appointment_conflict,
+)
+from activities.provider import setup_provider_availability
+from activities.common import failed_workflow
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
 USER_TASK_QUEUE = os.getenv("USER_TASK_QUEUE")
@@ -25,7 +42,7 @@ async def main():
         client,
         task_queue=USER_TASK_QUEUE,
         workflows=[UserCreationWorkflow],
-        activities=[create_patient_record, create_provider_record, failed_workflow],
+        activities=[create_patient_record, create_provider_record, activate_user, fail_user, delete_patient_record],
     )
 
     appointment_validation_worker = Worker(

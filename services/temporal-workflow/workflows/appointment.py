@@ -1,0 +1,52 @@
+from datetime import timedelta
+from temporalio import workflow
+from temporalio.common import RetryPolicy
+
+with workflow.unsafe.imports_passed_through():
+    from activities.appointment import (
+        validate_appointment_entities,
+        check_provider_availability,
+        check_for_appointment_conflict,
+    )
+    from activities.common import failed_workflow
+
+
+@workflow.defn
+class AppointmentValidationWorkflow:
+    @workflow.run
+    async def run(self, appointment_data: dict):
+        print(f"Starting AppointmentValidationWorkflow: {appointment_data}")
+        try:
+            await workflow.execute_activity(
+                validate_appointment_entities,
+                appointment_data,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+
+            is_available = await workflow.execute_activity(
+                check_provider_availability,
+                appointment_data,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+
+            if not is_available:
+                raise Exception("Provider is not available for the requested time slot.")
+
+            await workflow.execute_activity(
+                check_for_appointment_conflict,
+                appointment_data,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            print("AppointmentValidationWorkflow completed")
+
+        except Exception as e:
+            await workflow.execute_activity(
+                failed_workflow,
+                {"error": str(e), **appointment_data},
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            raise

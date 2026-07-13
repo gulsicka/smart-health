@@ -76,85 +76,111 @@
 <!-- ============================================================ -->
 <div class="diagram-section">
   <h2>1 · User Creation Workflow</h2>
-  <p>Client registers → auth-service creates user + fires UserCreationWorkflow → worker creates patient/provider records in parallel services</p>
+  <p>Client registers → auth-service saves user (status=pending) + fires UserCreationWorkflow → on success, user activated → on failure, all created records are compensated and user is deleted so they can retry</p>
 
-  <svg viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 680 530" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <marker id="a1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#555"/></marker>
+      <marker id="a1"  markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#555"/></marker>
       <marker id="a1r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#aaa"/></marker>
-      <marker id="a1g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2e7d32"/></marker>
+      <marker id="a1g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1b5e20"/></marker>
       <marker id="a1e" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#e53935"/></marker>
     </defs>
 
-    <!-- Actors: Client=50, Auth=160, Temporal=290, Patient=410, Provider=540 -->
-    <!-- Actor boxes -->
+    <!-- Actors: Client=50, Auth=160, Temporal=290, Patient=415, Provider=545 -->
     <rect x="10"  y="8" width="80"  height="28" rx="5" fill="#e8f4fd"/><text x="50"  y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#1565c0">Client</text>
-    <rect x="118" y="8" width="85"  height="28" rx="5" fill="#fce4ec"/><text x="160" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#c62828">Auth Service</text>
-    <rect x="248" y="8" width="85"  height="28" rx="5" fill="#ede7f6"/><text x="290" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#4527a0">Temporal Worker</text>
-    <rect x="375" y="8" width="75"  height="28" rx="5" fill="#e8f5e9"/><text x="412" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#2e7d32">Patient Svc</text>
-    <rect x="498" y="8" width="80"  height="28" rx="5" fill="#fff3e0"/><text x="538" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#e65100">Provider Svc</text>
+    <rect x="115" y="8" width="90"  height="28" rx="5" fill="#fce4ec"/><text x="160" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#c62828">Auth Service</text>
+    <rect x="247" y="8" width="90"  height="28" rx="5" fill="#ede7f6"/><text x="292" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#4527a0">Temporal Worker</text>
+    <rect x="378" y="8" width="78"  height="28" rx="5" fill="#e8f5e9"/><text x="417" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#2e7d32">Patient Svc</text>
+    <rect x="500" y="8" width="80"  height="28" rx="5" fill="#fff3e0"/><text x="540" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#e65100">Provider Svc</text>
 
     <!-- Lifelines -->
-    <line x1="50"  y1="36" x2="50"  y2="400" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <line x1="160" y1="36" x2="160" y2="400" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <line x1="290" y1="36" x2="290" y2="400" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <line x1="412" y1="36" x2="412" y2="400" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <line x1="538" y1="36" x2="538" y2="400" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="50"  y1="36" x2="50"  y2="530" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="160" y1="36" x2="160" y2="530" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="292" y1="36" x2="292" y2="530" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="417" y1="36" x2="417" y2="530" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="540" y1="36" x2="540" y2="530" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+    <!-- ── HAPPY PATH ── -->
 
     <!-- 1. POST /users -->
-    <line x1="50" y1="65" x2="152" y2="65" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
-    <text x="103" y="59" text-anchor="middle" font-size="10" fill="#333" font-weight="600">POST /users</text>
+    <line x1="50" y1="62" x2="152" y2="62" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
+    <text x="100" y="56" text-anchor="middle" font-size="10" font-weight="600" fill="#333">POST /users</text>
 
-    <!-- 2. Save user + roles to DB (internal note) -->
-    <rect x="162" y="73" width="130" height="20" rx="3" fill="#fce4ec" stroke="#ef9a9a" stroke-width="1"/>
-    <text x="227" y="87" text-anchor="middle" font-size="10" fill="#c62828">save user + roles to DB</text>
+    <!-- 2. save user · status=pending -->
+    <rect x="163" y="70" width="155" height="20" rx="3" fill="#fce4ec" stroke="#ef9a9a" stroke-width="1"/>
+    <text x="240" y="84" text-anchor="middle" font-size="10" fill="#c62828">save user · status = "pending"</text>
 
-    <!-- 3. Start UserCreationWorkflow -->
-    <line x1="160" y1="105" x2="282" y2="105" stroke="#7b1fa2" stroke-width="1.5" marker-end="url(#a1)"/>
-    <text x="220" y="98" text-anchor="middle" font-size="10" fill="#7b1fa2" font-weight="600">start_workflow()</text>
+    <!-- 3. start_workflow() -->
+    <line x1="160" y1="103" x2="284" y2="103" stroke="#7b1fa2" stroke-width="1.5" marker-end="url(#a1)"/>
+    <text x="222" y="96" text-anchor="middle" font-size="10" font-weight="600" fill="#7b1fa2">start_workflow()</text>
 
-    <!-- 4. 201 Created back to client -->
-    <line x1="160" y1="122" x2="58" y2="122" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
-    <text x="108" y="116" text-anchor="middle" font-size="10" fill="#888" font-style="italic">201 Created</text>
+    <!-- 4. 201 Created -->
+    <line x1="160" y1="120" x2="58" y2="120" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="108" y="114" text-anchor="middle" font-size="10" font-style="italic" fill="#888">201 Created</text>
 
     <!-- Section bar: if patient -->
-    <rect x="282" y="140" width="8" height="65" rx="2" fill="#e8f5e9"/>
-    <text x="270" y="175" text-anchor="middle" font-size="9" fill="#2e7d32" font-weight="600" transform="rotate(-90,270,175)">if patient</text>
+    <rect x="284" y="136" width="7" height="62" rx="2" fill="#e8f5e9"/>
+    <text x="273" y="169" text-anchor="middle" font-size="9" font-weight="600" fill="#2e7d32" transform="rotate(-90,273,169)">if patient</text>
 
-    <!-- 5. create_patient_record -->
-    <line x1="290" y1="148" x2="404" y2="148" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
-    <text x="348" y="142" text-anchor="middle" font-size="10" fill="#333">POST /patients</text>
-    <line x1="412" y1="162" x2="298" y2="162" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
-    <text x="352" y="176" text-anchor="middle" font-size="9" fill="#2e7d32">✓ patient record created</text>
+    <!-- 5. POST /patients -->
+    <line x1="292" y1="144" x2="409" y2="144" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
+    <text x="352" y="138" text-anchor="middle" font-size="10" fill="#333">POST /patients</text>
+    <line x1="417" y1="158" x2="300" y2="158" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="356" y="172" text-anchor="middle" font-size="9" fill="#2e7d32">✓ patient created · patient_created = True</text>
 
     <!-- Section bar: if provider -->
-    <rect x="282" y="212" width="8" height="65" rx="2" fill="#fff3e0"/>
-    <text x="270" y="247" text-anchor="middle" font-size="9" fill="#e65100" font-weight="600" transform="rotate(-90,270,247)">if provider</text>
+    <rect x="284" y="204" width="7" height="62" rx="2" fill="#fff3e0"/>
+    <text x="273" y="237" text-anchor="middle" font-size="9" font-weight="600" fill="#e65100" transform="rotate(-90,273,237)">if provider</text>
 
-    <!-- 6. create_provider_record -->
-    <line x1="290" y1="220" x2="530" y2="220" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
-    <text x="410" y="214" text-anchor="middle" font-size="10" fill="#333">POST /providers</text>
-    <line x1="538" y1="234" x2="298" y2="234" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
-    <text x="415" y="248" text-anchor="middle" font-size="9" fill="#e65100">✓ provider record created</text>
+    <!-- 6. POST /providers -->
+    <line x1="292" y1="212" x2="532" y2="212" stroke="#555" stroke-width="1.5" marker-end="url(#a1)"/>
+    <text x="413" y="206" text-anchor="middle" font-size="10" fill="#333">POST /providers</text>
+    <line x1="540" y1="226" x2="300" y2="226" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="416" y="240" text-anchor="middle" font-size="9" fill="#e65100">✓ provider record created</text>
 
-    <!-- Divider -->
-    <line x1="20" y1="285" x2="660" y2="285" stroke="#f0f0f0" stroke-width="1" stroke-dasharray="3,3"/>
-    <text x="340" y="298" text-anchor="middle" font-size="9" fill="#bbb" font-style="italic">— on failure —</text>
+    <!-- Section bar: activate -->
+    <rect x="284" y="254" width="7" height="50" rx="2" fill="#e8f4fd"/>
+    <text x="273" y="280" text-anchor="middle" font-size="9" font-weight="600" fill="#1565c0" transform="rotate(-90,273,280)">activate</text>
 
-    <!-- 7. failed_workflow -->
-    <path d="M290,308 C340,308 340,330 290,330" stroke="#e53935" stroke-width="1.5" fill="none" marker-end="url(#a1e)"/>
-    <text x="360" y="316" font-size="10" fill="#e53935" font-weight="600">failed_workflow()</text>
-    <text x="360" y="330" font-size="9" fill="#aaa">logs error · workflow marked Failed</text>
+    <!-- 7. PATCH /users/{id}/activate -->
+    <line x1="292" y1="262" x2="152" y2="262" stroke="#1b5e20" stroke-width="1.8" marker-end="url(#a1g)"/>
+    <text x="222" y="256" text-anchor="middle" font-size="10" font-weight="600" fill="#1b5e20">PATCH /users/{id}/activate</text>
+    <line x1="160" y1="276" x2="300" y2="276" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="228" y="290" text-anchor="middle" font-size="9" fill="#1b5e20">✓ status = "active" · user can log in</text>
 
-    <!-- Done -->
-    <rect x="232" y="350" width="122" height="22" rx="4" fill="#e8f5e9" stroke="#66bb6a" stroke-width="1.5"/>
-    <text x="293" y="366" text-anchor="middle" font-size="10" fill="#2e7d32" font-weight="600">✓ Workflow Complete</text>
+    <!-- Workflow complete -->
+    <rect x="232" y="308" width="126" height="22" rx="4" fill="#e8f5e9" stroke="#66bb6a" stroke-width="1.5"/>
+    <text x="295" y="324" text-anchor="middle" font-size="10" font-weight="600" fill="#2e7d32">✓ Workflow Complete</text>
+
+    <!-- ── FAILURE PATH ── -->
+    <line x1="20" y1="344" x2="660" y2="344" stroke="#f0f0f0" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="340" y="357" text-anchor="middle" font-size="9" font-style="italic" fill="#bbb">— on any activity failure —</text>
+
+    <!-- Compensate: delete patient if patient_created -->
+    <rect x="284" y="365" width="7" height="56" rx="2" fill="#fce4ec"/>
+    <text x="273" y="394" text-anchor="middle" font-size="9" font-weight="600" fill="#c62828" transform="rotate(-90,273,394)">if patient_created</text>
+
+    <line x1="292" y1="373" x2="409" y2="373" stroke="#e53935" stroke-width="1.5" marker-end="url(#a1e)"/>
+    <text x="352" y="367" text-anchor="middle" font-size="10" font-weight="600" fill="#e53935">DELETE /patients/by-user-id/{id}</text>
+    <line x1="417" y1="387" x2="300" y2="387" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="355" y="401" text-anchor="middle" font-size="9" fill="#aaa">✓ patient record removed</text>
+
+    <!-- Compensate: delete user -->
+    <line x1="292" y1="420" x2="152" y2="420" stroke="#e53935" stroke-width="1.5" marker-end="url(#a1e)"/>
+    <text x="222" y="414" text-anchor="middle" font-size="10" font-weight="600" fill="#e53935">DELETE /users/{id}</text>
+    <line x1="160" y1="434" x2="300" y2="434" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a1r)"/>
+    <text x="228" y="448" text-anchor="middle" font-size="9" fill="#aaa">✓ user removed · can retry signup</text>
+
+    <!-- Workflow failed -->
+    <rect x="232" y="465" width="126" height="22" rx="4" fill="#ffebee" stroke="#ef9a9a" stroke-width="1.5"/>
+    <text x="295" y="481" text-anchor="middle" font-size="10" font-weight="600" fill="#c62828">✗ Workflow Failed</text>
   </svg>
 
   <div class="legend">
     <span><span class="leg-line" style="background:#555;"></span>request</span>
     <span><span class="leg-dash" style="border-color:#aaa;"></span>response</span>
-    <span><span class="leg-line" style="background:#e53935;"></span>on failure</span>
+    <span><span class="leg-line" style="background:#1b5e20;"></span>activate</span>
+    <span><span class="leg-line" style="background:#e53935;"></span>compensate</span>
   </div>
 </div>
 
