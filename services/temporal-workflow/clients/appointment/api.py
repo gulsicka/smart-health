@@ -1,7 +1,7 @@
-import os
 from clients.common.http import make_request
+from config import settings
 
-APPOINTMENT_URL = os.getenv("APPOINTMENT_SERVICE_URL")
+APPOINTMENT_URL = settings.APPOINTMENT_SERVICE_URL
 
 
 async def get_appointments():

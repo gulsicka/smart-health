@@ -1,7 +1,7 @@
-import os
 from clients.common.http import make_request
+from config import settings
 
-PATIENT_URL = os.getenv("PATIENT_SERVICE_URL")
+PATIENT_URL = settings.PATIENT_SERVICE_URL
 
 
 async def create_patient(user_id: int, date_of_birth: str):

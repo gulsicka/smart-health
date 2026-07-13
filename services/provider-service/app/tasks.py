@@ -1,12 +1,9 @@
-import os
 from temporalio.client import Client
-
-TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
-PROVIDER_TASK_QUEUE = os.getenv("PROVIDER_TASK_QUEUE", "provider_availability_queue")
+from app.config import settings
 
 
 async def start_provider_availability_workflow(provider_id: int, body, workflow_id: str):
-    client = await Client.connect(TEMPORAL_HOST)
+    client = await Client.connect(settings.TEMPORAL_HOST)
     handle = await client.start_workflow(
         "ProviderAvailabilityWorkflow",
         {
@@ -17,6 +14,6 @@ async def start_provider_availability_workflow(provider_id: int, body, workflow_
             "end_time": body.end_time,
         },
         id=workflow_id,
-        task_queue=PROVIDER_TASK_QUEUE,
+        task_queue=settings.PROVIDER_TASK_QUEUE,
     )
     return handle

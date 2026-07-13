@@ -1,7 +1,7 @@
-import os
 from clients.common.http import make_request
+from config import settings
 
-PROVIDER_URL = os.getenv("PROVIDER_SERVICE_URL")
+PROVIDER_URL = settings.PROVIDER_SERVICE_URL
 
 
 async def create_provider(user_id: int, department_id: int | None):

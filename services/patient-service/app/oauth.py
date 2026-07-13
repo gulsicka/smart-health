@@ -1,28 +1,24 @@
-from jose import JWTError, jwt
-from datetime import datetime, timedelta
-from . import schemas
-from .enums import RoleName
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
-SECRET_KEY = "my-secret-key"
-ALGORITHM = "HS256"
-EXPIRE_MINUTES = 30
+from . import schemas
+from .config import settings
+from .enums import RoleName
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://auth-service:8000/login")
 
 
 def verify_access_token(token: str, credentials_exception):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: int = payload.get("user_id")
         roles: list = payload.get("roles", [])
         if user_id is None:
             raise credentials_exception
-        token_data = schemas.TokenData(user_id=user_id, roles=roles)
+        return schemas.TokenData(user_id=user_id, roles=roles)
     except JWTError:
         raise credentials_exception
-    return token_data
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -39,7 +35,7 @@ def require_role(*roles: RoleName):
         if not any(r in roles for r in current_user.roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to perform this action"
+                detail="Not authorized to perform this action",
             )
         return current_user
     return dependency

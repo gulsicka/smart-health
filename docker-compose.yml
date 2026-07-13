@@ -4,13 +4,12 @@ services:
     ports: ["8001:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@auth-db:5432/auth_db
+      SECRET_KEY: ${SECRET_KEY}
       TEMPORAL_HOST: temporal:7233
       USER_TASK_QUEUE: user_creation_queue
     depends_on:
       auth-db:
         condition: service_healthy
-    env_file:
-    - ./services/auth-service/.env
 
   auth-db:
     image: postgres
@@ -31,6 +30,7 @@ services:
     ports: ["8002:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@patient-db:5432/patient_db
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       patient-db:
         condition: service_healthy
@@ -54,6 +54,8 @@ services:
     ports: ["8003:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
+      SECRET_KEY: ${SECRET_KEY}
+      TEMPORAL_HOST: temporal:7233
       PROVIDER_TASK_QUEUE: provider_availability_queue
     depends_on:
       provider-db:
@@ -78,6 +80,8 @@ services:
     ports: ["8004:8000"]
     environment:
       DATABASE_URL: postgresql://postgres:password@appointment-db:5432/appointment_db
+      SECRET_KEY: ${SECRET_KEY}
+      TEMPORAL_HOST: temporal:7233
       APPOINTMENT_TASK_QUEUE: appointment_validation_queue
     depends_on:
       appointment-db:

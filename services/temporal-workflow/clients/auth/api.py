@@ -1,7 +1,7 @@
-import os
 from clients.common.http import make_request
+from config import settings
 
-AUTH_URL = os.getenv("AUTH_SERVICE_URL")
+AUTH_URL = settings.AUTH_SERVICE_URL
 
 
 async def activate_user(user_id: int):

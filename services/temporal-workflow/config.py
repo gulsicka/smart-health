@@ -1,0 +1,19 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    TEMPORAL_HOST: str
+    AUTH_SERVICE_URL: str
+    PATIENT_SERVICE_URL: str
+    PROVIDER_SERVICE_URL: str
+    APPOINTMENT_SERVICE_URL: str
+    SYSTEM_EMAIL: str
+    SYSTEM_PASSWORD: str
+    USER_TASK_QUEUE: str
+    APPOINTMENT_TASK_QUEUE: str
+    PROVIDER_TASK_QUEUE: str
+
+
+settings = Settings()

@@ -1,5 +1,5 @@
-import os
 import httpx
+from config import settings
 
 _token = None
 
@@ -10,11 +10,8 @@ async def get_service_token():
         return _token
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{os.getenv('AUTH_SERVICE_URL')}/login",
-            data={
-                "username": os.getenv("SYSTEM_EMAIL"),
-                "password": os.getenv("SYSTEM_PASSWORD"),
-            },
+            f"{settings.AUTH_SERVICE_URL}/login",
+            data={"username": settings.SYSTEM_EMAIL, "password": settings.SYSTEM_PASSWORD},
         )
         response.raise_for_status()
         _token = response.json()["access_token"]

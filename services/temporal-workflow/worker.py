@@ -1,7 +1,7 @@
 import asyncio
-import os
 from temporalio.client import Client
 from temporalio.worker import Worker
+from config import settings
 
 from workflows.user_creation import UserCreationWorkflow
 from workflows.appointment import AppointmentValidationWorkflow
@@ -22,10 +22,10 @@ from activities.appointment import (
 from activities.provider import setup_provider_availability
 from activities.common import failed_workflow
 
-TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "temporal:7233")
-USER_TASK_QUEUE = os.getenv("USER_TASK_QUEUE")
-APPOINTMENT_TASK_QUEUE = os.getenv("APPOINTMENT_TASK_QUEUE")
-PROVIDER_TASK_QUEUE = os.getenv("PROVIDER_TASK_QUEUE")
+TEMPORAL_HOST = settings.TEMPORAL_HOST
+USER_TASK_QUEUE = settings.USER_TASK_QUEUE
+APPOINTMENT_TASK_QUEUE = settings.APPOINTMENT_TASK_QUEUE
+PROVIDER_TASK_QUEUE = settings.PROVIDER_TASK_QUEUE
 
 async def main():
 

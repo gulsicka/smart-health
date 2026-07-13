@@ -8,3 +8,4 @@ pydantic[email]
 python-jose[cryptography]
 python-multipart
 temporalio
+pydantic-settings
