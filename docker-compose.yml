@@ -297,6 +297,12 @@ services:
       prometheus:
         condition: service_started
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  #ui
+      - "4317:4317"    # services send traces heree
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
