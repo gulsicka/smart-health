@@ -7,41 +7,59 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client / API Gateway                      │
-└───────────┬─────────────┬──────────────┬───────────┬───────────┘
-            │             │              │           │
-     ┌──────▼──────┐ ┌────▼────┐ ┌──────▼──────┐ ┌─▼──────────┐
-     │ auth-service│ │patient- │ │ provider-   │ │appointment-│
-     │  :8001      │ │service  │ │ service     │ │service     │
-     │             │ │:8002    │ │ :8003       │ │:8004       │
-     └──────┬──────┘ └────┬────┘ └──────┬──────┘ └─────┬──────┘
-            │             │              │               │
-     ┌──────▼─────────────▼──────────────▼───────┐      │
-     │                  PostgreSQL DBs             │      │ Kafka events
-     │  auth-db  patient-db  provider-db           │      │
-     └────────────────────────────────────────────┘      │
-                                                          ▼
-     ┌─────────────────┐         ┌──────────────────────────────┐
-     │  Redis          │◄────────│     analytics-service :8005  │
-     │  (JWT blocklist │         │  (Kafka consumer + counters) │
-     │   + analytics   │         └──────────────┬───────────────┘
-     │   counters)     │                         │ Celery tasks
-     └─────────────────┘                         ▼
-                                  ┌──────────────────────────┐
-     ┌─────────────────┐          │  notification-service    │
-     │  RabbitMQ       │◄─────────│  (Celery worker)         │
-     └─────────────────┘          └──────────────────────────┘
+                          Client / API Gateway
+           ┌──────────────┬──────────────┬──────────────┐
+           │              │              │              │
+    ┌──────┴──────┐ ┌─────┴──────┐ ┌────┴──────┐ ┌────┴───────────┐
+    │auth-service │ │patient-    │ │provider-  │ │appointment-    │
+    │   :8001     │ │service     │ │service    │ │service         │
+    │             │ │:8002       │ │:8003      │ │:8004           │
+    └──────┬──────┘ └─────┬──────┘ └────┬──────┘ └────┬───────────┘
+           │              │             │              │
+           ▼              ▼             ▼              ▼
+        auth-db       patient-db    provider-db    appoint-db
+      (postgres)      (postgres)    (postgres)     (postgres)
+           │                                         │
+           │ JWT blocklist                           │ appointment.created
+           ▼                                         │ appointment.status_updated
+         Redis  ◄─────────────────────┐              ▼
+       (cache)    analytics counters  │         Apache Kafka
+                                      │              │
+                               ┌──────┴──────┐       │
+                               │ analytics-  │◄──────┘
+                               │ service     │
+                               │ :8005       │
+                               └──────┬──────┘
+                                      │ Celery tasks (send_task)
+                                      ▼
+                                  RabbitMQ
+                                      │
+                               ┌──────┴──────────────┐
+                               │ notification-service │
+                               │ (Celery worker)      │
+                               └──────┬───────────────┘
+                                      │
+                                      ▼
+                                notification-db
+                                  (postgres)
 
-     ┌─────────────────────────────────────────────────────┐
-     │  Temporal  (workflow orchestration)                  │
-     │  temporal-workflow worker + temporal-ui :8080        │
-     └─────────────────────────────────────────────────────┘
 
-     ┌──────────────────────────────────┐
-     │  Prometheus :9090 + Grafana :3000│
-     │  (metrics scraping + dashboards) │
-     └──────────────────────────────────┘
+  Temporal :7233  ◄──── auth-service (user creation workflow)
+  (Workflow           ◄──── appointment-service (booking validation workflow)
+  Orchestration)
+  temporal-ui :8080
+
+
+  Observability
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  all services ──OTLP traces──► Jaeger :16686 (trace viewer)    │
+  │                                                                 │
+  │  Prometheus :9090 ──scrape /metrics──► all services            │
+  │       │                                                         │
+  │       └──► Grafana :3000 (dashboards)                          │
+  │                                                                 │
+  └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
