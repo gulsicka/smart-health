@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     TEMPORAL_HOST: str
     TEMPORAL_NAMESPACE: str = "default"
     USER_TASK_QUEUE: str
+    REDIS_URL: str
 
 
 settings = Settings()

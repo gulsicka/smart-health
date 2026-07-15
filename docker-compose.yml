@@ -8,6 +8,7 @@ services:
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
       USER_TASK_QUEUE: user_creation_queue
+      REDIS_URL: redis://redis:6379
     depends_on:
       auth-db:
         condition: service_healthy
@@ -83,8 +84,12 @@ services:
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
       APPOINTMENT_TASK_QUEUE: appointment_validation_queue
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: appointments.events
     depends_on:
       appointment-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
   appointment-db:
@@ -156,9 +161,58 @@ services:
       - provider-service
       - appointment-service
 
+  redis:
+    image: redis:latest
+    ports: ["6379:6379"]
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1  # snapshot to disk every 60s if ≥1 key changed
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1                                                              # unique ID for this broker node
+      KAFKA_PROCESS_ROLES: broker,controller                                        # KRaft: one node acts as both message broker (serves producer and consumer) and cluster controller (leader selection, manage metadata)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093         # ports kafka binds to inside the container, 9092 for clients, 9093 for controller-to-controller traffic (Kafka talking to itself.)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092                            # address kafka tells clients to connect to (other containers reach it by the docker service name)
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER                                  # which listener is reserved for controller traffic
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093                                 # list of controller nodes: nodeId@host:port (single node in dev)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1                                    # internal __consumer_offsets topic replication, 1 for single broker dev
+      KAFKA_LOG_DIRS: /var/lib/kafka/data                                           # where kafka writes messages to disk
+      CLUSTER_ID: ${CLUSTER_ID}                                         # KRaft requires a fixed cluster UUID — must stay same across restarts
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092   # which kafka to connect to
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry                  # hostname this registry advertises
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    ports: ["9000:9000"]
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
   provider_postgres_data:
   appointment_postgres_data:
   temporal_postgres_data:
+  redis_data:
+  kafka_data:

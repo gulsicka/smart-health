@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import date as date_type
+import uuid
 
 from app.database import get_db
 from app import schemas, auth, crud, tasks
 from app.utils import workflow_id_for
 from app.enums import AppointmentStatus, RoleName
+from app import kafka_producer
 
 router = APIRouter()
 
@@ -57,11 +59,26 @@ async def create_appointment(
 
 
 @router.post("/appointments/internal", response_model=schemas.Appointment)
-def create_appointment_internal(
+async def create_appointment_internal(
     appointment: schemas.AppointmentCreate,
     db: Session = Depends(get_db),
 ):
-    return crud.create_appointment_internal(db, appointment.model_dump())
+    result =  crud.create_appointment_internal(db, appointment.model_dump())
+    await kafka_producer.publish_event(
+        event={
+            "appointment_id": result.id,
+            "patient_id": result.patient_id,
+            "provider_id": result.provider_id,
+            "clinic_id": result.clinic_id,
+            "department_id": result.department_id,
+            "date": result.date.isoformat(),
+            "start_time": result.start_time.isoformat(),
+            "end_time": result.end_time.isoformat(),
+            "status": result.status,
+        },
+        key=str(result.id),
+    )
+    return result
 
 
 @router.get("/appointments", response_model=list[schemas.Appointment])
@@ -85,7 +102,7 @@ def get_appointment(
 
 
 @router.patch("/appointments/{appointment_id}/status", response_model=schemas.Appointment)
-def update_appointment_status(
+async def update_appointment_status(
     appointment_id: int,
     updates: schemas.AppointmentUpdate,
     db: Session = Depends(get_db),
@@ -110,7 +127,22 @@ def update_appointment_status(
     if not any(r in allowed_roles for r in current_user.roles):
         raise HTTPException(status_code=403, detail=f"Your role is not allowed to set status to '{new_status}'")
 
-    return crud.update_appointment_status(db, appointment, new_status)
+    updated  = crud.update_appointment_status(db, appointment, new_status)
+    await kafka_producer.publish_event(
+    event={
+       "appointment_id": updated.id,
+            "patient_id": updated.patient_id,
+            "provider_id": updated.provider_id,
+            "clinic_id": updated.clinic_id,
+            "department_id": updated.department_id,
+            "date": updated.date.isoformat(),
+            "start_time": updated.start_time.isoformat(),
+            "end_time": updated.end_time.isoformat(),
+            "status": updated.status,
+    },
+    key=str(updated.id),
+    )
+    return updated
 
 
 @router.get("/providers/{provider_id}/booked-slots", response_model=list[schemas.BookedSlot])

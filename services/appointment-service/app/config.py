@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     TEMPORAL_HOST: str
     TEMPORAL_NAMESPACE: str = "default"
     APPOINTMENT_TASK_QUEUE: str
+    KAFKA_BOOTSTRAP_SERVERS : str
+    KAFKA_TOPIC: str
 
 
 settings = Settings()

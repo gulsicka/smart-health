@@ -11,7 +11,7 @@ async def get_service_token():
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{settings.AUTH_SERVICE_URL}/login",
-            data={"username": settings.SYSTEM_EMAIL, "password": settings.SYSTEM_PASSWORD},
+            json={"email": settings.SYSTEM_EMAIL, "password": settings.SYSTEM_PASSWORD},
         )
         response.raise_for_status()
         _token = response.json()["access_token"]

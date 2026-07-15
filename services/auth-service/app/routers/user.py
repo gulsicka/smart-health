@@ -1,3 +1,7 @@
+from datetime import timedelta
+from uuid import uuid4
+from fastapi.security import HTTPAuthorizationCredentials
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +9,8 @@ from app.database import get_db
 from app import schemas, utils, auth, crud, tasks
 from app.utils import workflow_id_for
 from app.enums import RoleName, UserStatus
+from app.config import settings
+from app.redis import get_redis
 
 router = APIRouter()
 
@@ -116,6 +122,15 @@ def login(
     })
     print(f"User {user.id} logged in")
     return {"message": "Login successful", "access_token": access_token, "token_type": "bearer"}
+
+@router.post("/logout")
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
+    redis = Depends(get_redis),
+):
+    jti = auth.get_jti_from_token(credentials)
+    await redis.setex(f"blacklist:{jti}", settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "true") # individual token keys, with an expiry time. a list here would require going thru each itema nd checking if the token is in the list is expired or not, which is less efficient than just checking if the key exists.
+    return {"message": "Logout successful"}
 
 
 @router.patch("/users/{user_id}/activate")
