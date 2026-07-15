@@ -208,6 +208,19 @@ services:
       kafka:
         condition: service_healthy
 
+  analytics-service:
+    build: ./services/analytics-service
+    ports: ["8005:8000"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: appointments.events
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:

@@ -52,6 +52,7 @@ async def create_appointment(
             "date": appointment.date.isoformat(),
             "start_time": appointment.start_time.isoformat(),
             "end_time": appointment.end_time.isoformat(),
+            
         },
         workflow_id=workflow_id,
     )
@@ -75,6 +76,9 @@ async def create_appointment_internal(
             "start_time": result.start_time.isoformat(),
             "end_time": result.end_time.isoformat(),
             "status": result.status,
+            "event_id": str(uuid.uuid4()),
+            "event_type": "appointment.created",
+            "timestamp": result.created_at.isoformat(),
         },
         key=str(result.id),
     )
@@ -139,6 +143,9 @@ async def update_appointment_status(
             "start_time": updated.start_time.isoformat(),
             "end_time": updated.end_time.isoformat(),
             "status": updated.status,
+            "event_id": str(uuid.uuid4()),
+            "event_type": "appointment.status_updated",
+            "timestamp": updated.created_at.isoformat(),
     },
     key=str(updated.id),
     )
