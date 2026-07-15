@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: auth-service
+    static_configs:
+      - targets: ["auth-service:8000"]
+
+  - job_name: patient-service
+    static_configs:
+      - targets: ["patient-service:8000"]
+
+  - job_name: provider-service
+    static_configs:
+      - targets: ["provider-service:8000"]
+
+  - job_name: appointment-service
+    static_configs:
+      - targets: ["appointment-service:8000"]
+
+  - job_name: analytics-service
+    static_configs:
+      - targets: ["analytics-service:8000"]

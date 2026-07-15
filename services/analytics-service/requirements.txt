@@ -3,3 +3,5 @@ uvicorn
 aiokafka
 redis
 pydantic-settings
+celery
+prometheus-fastapi-instrumentator

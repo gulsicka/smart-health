@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.consumer import start_consumer, stop_consumer, consume_events
 from app.routers import analytics
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 @asynccontextmanager
@@ -13,6 +14,7 @@ async def lifespan(app):
     await stop_consumer() #shutdown
 
 app = FastAPI(lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(analytics.router)
 

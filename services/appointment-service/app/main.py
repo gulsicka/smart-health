@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app import kafka_producer
 from app.routers import appointment
+from prometheus_fastapi_instrumentator import Instrumentator
 
 @asynccontextmanager
 async def lifespan(app):
@@ -10,6 +11,7 @@ async def lifespan(app):
     await kafka_producer.stop_producer() #shutdown
 
 app = FastAPI(lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(appointment.router)
 

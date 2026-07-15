@@ -10,3 +10,4 @@ python-multipart
 temporalio
 pydantic-settings
 aiokafka
+prometheus-fastapi-instrumentator

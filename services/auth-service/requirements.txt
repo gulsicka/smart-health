@@ -11,3 +11,4 @@ python-multipart
 temporalio
 pydantic-settings
 redis
+prometheus-fastapi-instrumentator

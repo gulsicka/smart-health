@@ -215,10 +215,86 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: appointments.events
       REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672// 
     depends_on:
       kafka:
         condition: service_healthy
       redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"    # broker port, celery connects here
+      - "15672:15672"  # management UI — http://localhost:15672 (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  notification-service:
+    build: ./services/notification-service
+    environment:
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//   # RabbitMQ connection string
+      CELERY_RESULT_BACKEND: redis://redis:6379/0             # Redis stores task results
+      DATABASE_URL: postgresql://postgres:password@notification-db:5432/notification_db
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      notification-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  notification-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: notification_db
+    ports: ["5438:5432"]
+    volumes:
+      - notification_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      auth-service:
+        condition: service_started
+      patient-service:    
+        condition: service_started
+      provider-service:
+        condition: service_started
+      appointment-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      prometheus:
         condition: service_started
 
 volumes:
@@ -229,3 +305,4 @@ volumes:
   temporal_postgres_data:
   redis_data:
   kafka_data:
+  notification_postgres_data:

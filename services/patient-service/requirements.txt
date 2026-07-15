@@ -8,3 +8,4 @@ pydantic[email]
 python-jose[cryptography]
 python-multipart
 pydantic-settings
+prometheus-fastapi-instrumentator
