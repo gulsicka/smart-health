@@ -10,3 +10,10 @@ async def activate_user(user_id: int):
 
 async def delete_user(user_id: int):
     await make_request("delete", f"{AUTH_URL}/users/{user_id}")
+
+async def remove_user_roles(data: dict):
+    await make_request(
+        "patch",
+        f"{AUTH_URL}/users/{data['id']}/remove_roles",
+        json={"role_names": data["roles"]},
+    )

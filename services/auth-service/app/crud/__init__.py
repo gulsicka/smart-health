@@ -7,6 +7,7 @@ from .user import (
     update_user,
     delete_user,
     activate_user,
+    remove_user_roles,
 )
 from .role import (
     get_all_roles,

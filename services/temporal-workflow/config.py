@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     SYSTEM_EMAIL: str
     SYSTEM_PASSWORD: str
     USER_TASK_QUEUE: str
+    UPDATE_USER_ROLE_TASK_QUEUE: str
     APPOINTMENT_TASK_QUEUE: str
 
 

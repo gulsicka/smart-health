@@ -5,13 +5,15 @@ from config import settings
 
 from workflows.user_creation import UserCreationWorkflow
 from workflows.appointment import AppointmentValidationWorkflow
+from workflows.update_user_role import UpdateUserWorkflow
 
-from activities.user_creation import (
+from activities.user import (
     create_patient_record,
     create_provider_record,
     activate_user,
     fail_user,
     delete_patient_record,
+    remove_user_role_on_failure,
 )
 from activities.appointment import (
     validate_appointment_entities,
@@ -23,6 +25,7 @@ from activities.common import failed_workflow
 TEMPORAL_HOST = settings.TEMPORAL_HOST
 USER_TASK_QUEUE = settings.USER_TASK_QUEUE
 APPOINTMENT_TASK_QUEUE = settings.APPOINTMENT_TASK_QUEUE
+UPDATE_USER_ROLE_TASK_QUEUE = settings.UPDATE_USER_ROLE_TASK_QUEUE
 
 
 async def main():
@@ -47,10 +50,18 @@ async def main():
         workflows=[AppointmentValidationWorkflow],
         activities=[validate_appointment_entities, check_provider_availability, check_for_appointment_conflict, failed_workflow],
     )
+    
+    update_user_role_worker = Worker(
+        client,
+        task_queue=UPDATE_USER_ROLE_TASK_QUEUE,
+        workflows=[UpdateUserWorkflow],
+        activities=[create_patient_record, create_provider_record, remove_user_role_on_failure],
+    )
 
     await asyncio.gather(
         user_creation_worker.run(),
         appointment_validation_worker.run(),
+        update_user_role_worker.run(),
     )
 
 

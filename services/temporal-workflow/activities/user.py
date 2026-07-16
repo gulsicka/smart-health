@@ -6,6 +6,7 @@ import clients.provider.api as provider_client
 
 @activity.defn
 async def create_patient_record(user_data: dict):
+    #raise Exception("Forced failure for rollback testing")
     await patient_client.create_patient(
         user_id=user_data["id"],
         date_of_birth=user_data["date_of_birth"],
@@ -33,3 +34,8 @@ async def fail_user(data: dict):
 @activity.defn
 async def delete_patient_record(data: dict):
     await patient_client.delete_patient_by_user_id(user_id=data["id"])
+
+
+@activity.defn
+async def remove_user_role_on_failure(data: dict):
+    await auth_client.remove_user_roles(data)

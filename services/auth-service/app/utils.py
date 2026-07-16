@@ -8,3 +8,6 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def workflow_id_for(user_id: str) -> str:
     return f"user-creation-{user_id}"
+
+def workflow_id_for_update(user_id: str) -> str:
+    return f"user-update-{user_id}"

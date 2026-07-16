@@ -3,7 +3,7 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from activities.user_creation import (
+    from activities.user import (
         create_patient_record,
         create_provider_record,
         activate_user,

@@ -56,3 +56,12 @@ def activate_user(db: Session, user: models.User):
     db.commit()
     db.refresh(user)
     return user
+
+def remove_user_roles(db: Session, user: models.User, role_names: list[str]):
+    roles_to_remove = [role for role in user.roles if role.role_name in role_names]
+    if roles_to_remove:
+        for role in roles_to_remove:
+            user.roles.remove(role)
+        db.commit()
+        db.refresh(user)
+    return user

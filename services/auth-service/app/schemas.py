@@ -42,6 +42,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     number: Optional[str] = None
     role_ids: Optional[list[int]] = None
+    date_of_birth: Optional[date] = None
 
 class User(BaseModel):
     id: int
@@ -68,3 +69,6 @@ class AuditLog(AuditLogBase):
     timestamp: datetime
     class Config:
         from_attributes = True
+
+class RemoveRolesRequest(BaseModel):
+    role_names: list[str]
