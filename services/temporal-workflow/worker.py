@@ -13,12 +13,18 @@ from activities.user import (
     activate_user,
     fail_user,
     delete_patient_record,
+    delete_provider_record,
     remove_user_role_on_failure,
+    notify_user_created_activity,
+    notify_user_creation_failed_activity,
+    notify_user_role_updated_activity,
+    notify_user_role_update_failed_activity,
 )
 from activities.appointment import (
     validate_appointment_entities,
     check_provider_availability,
     check_for_appointment_conflict,
+    notify_booking_failed,
 )
 from activities.common import failed_workflow
 
@@ -41,21 +47,36 @@ async def main():
         client,
         task_queue=USER_TASK_QUEUE,
         workflows=[UserCreationWorkflow],
-        activities=[create_patient_record, create_provider_record, activate_user, fail_user, delete_patient_record],
+        activities=[
+            create_patient_record,
+            create_provider_record,
+            activate_user,
+            fail_user,
+            delete_patient_record,
+            delete_provider_record,
+            notify_user_created_activity,
+            notify_user_creation_failed_activity,
+        ],
     )
 
     appointment_validation_worker = Worker(
         client,
         task_queue=APPOINTMENT_TASK_QUEUE,
         workflows=[AppointmentValidationWorkflow],
-        activities=[validate_appointment_entities, check_provider_availability, check_for_appointment_conflict, failed_workflow],
+        activities=[validate_appointment_entities, check_provider_availability, check_for_appointment_conflict, failed_workflow, notify_booking_failed],
     )
     
     update_user_role_worker = Worker(
         client,
         task_queue=UPDATE_USER_ROLE_TASK_QUEUE,
         workflows=[UpdateUserWorkflow],
-        activities=[create_patient_record, create_provider_record, remove_user_role_on_failure],
+        activities=[
+            create_patient_record,
+            create_provider_record,
+            remove_user_role_on_failure,
+            notify_user_role_updated_activity,
+            notify_user_role_update_failed_activity,
+        ],
     )
 
     await asyncio.gather(

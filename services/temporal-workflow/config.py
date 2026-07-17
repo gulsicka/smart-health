@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     USER_TASK_QUEUE: str
     UPDATE_USER_ROLE_TASK_QUEUE: str
     APPOINTMENT_TASK_QUEUE: str
+    RABBITMQ_URL: str
 
 
 settings = Settings()

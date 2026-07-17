@@ -156,10 +156,12 @@ services:
       - USER_TASK_QUEUE=user_creation_queue
       - APPOINTMENT_TASK_QUEUE=appointment_validation_queue
       - UPDATE_USER_ROLE_TASK_QUEUE=user_update_queue
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
     depends_on:
       - temporal
       - auth-service
       - patient-service
+      - rabbitmq
       - provider-service
       - appointment-service
 

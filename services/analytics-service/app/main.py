@@ -15,7 +15,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 async def lifespan(app):
     await start_consumer() #everything before yield is "startup", creates and connects to kafka consumer
     import asyncio
-    asyncio.create_task(consume_events())  # start consuming events in the background
+    asyncio.create_task(consume_events())  # start consuming events in the background without blocking the appp
     yield # fastapi lifespan pauses here and starts serving reqs, "the app is live"
     await stop_consumer() #shutdown
 

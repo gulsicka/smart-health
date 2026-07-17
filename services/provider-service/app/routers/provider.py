@@ -57,6 +57,16 @@ def get_provider(
     return provider
 
 
+@router.delete("/providers/by-user-id/{user_id}")
+def delete_provider_by_user_id(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+):
+    crud.delete_provider_by_user_id(db, user_id)
+    return {"message": "Provider deleted"}
+
+
 @router.delete("/providers/{provider_id}")
 def delete_provider(
     provider_id: int,

@@ -28,6 +28,10 @@ async def get_provider_availability(provider_id: int):
     return await make_request("get", f"{PROVIDER_URL}/providers/{provider_id}/availability")
 
 
+async def delete_provider_by_user_id(user_id: int):
+    await make_request("delete", f"{PROVIDER_URL}/providers/by-user-id/{user_id}")
+
+
 async def create_availability(provider_id: int, clinic_id: int, date: str, start_time: str, end_time: str):
     await make_request(
         "post",

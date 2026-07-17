@@ -6,9 +6,10 @@ with workflow.unsafe.imports_passed_through():
     from activities.user import (
         create_patient_record,
         create_provider_record,
-        remove_user_role_on_failure
+        remove_user_role_on_failure,
+        notify_user_role_updated_activity,
+        notify_user_role_update_failed_activity,
     )
-    
 
 
 @workflow.defn
@@ -16,7 +17,7 @@ class UpdateUserWorkflow:
     @workflow.run
     async def run(self, user_data: dict):
         print(f"Starting UpdateUserWorkflow for user: {user_data['id']}")
-        
+
         try:
             if "patient" in user_data["roles"]:
                 await workflow.execute_activity(
@@ -34,15 +35,33 @@ class UpdateUserWorkflow:
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
 
+            try:
+                await workflow.execute_activity(
+                    notify_user_role_updated_activity,
+                    {"user_id": user_data["id"], "roles": user_data["roles"]},
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=5),
+                )
+            except Exception:
+                print(f"notify_user_role_updated failed for user {user_data['id']}, continuing")
+
             print("UpdateUserWorkflow completed")
+
         except Exception as e:
             print(f"UpdateUserWorkflow failed for user: {user_data['id']}, error: {e}")
-            # remove new roles if any of the activities fail
             await workflow.execute_activity(
                 remove_user_role_on_failure,
                 user_data,
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
-                
+            try:
+                await workflow.execute_activity(
+                    notify_user_role_update_failed_activity,
+                    {"user_id": user_data["id"], "roles": user_data["roles"]},
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=5),
+                )
+            except Exception:
+                print(f"notify_user_role_update_failed dispatch failed for user {user_data['id']}, continuing")
             raise

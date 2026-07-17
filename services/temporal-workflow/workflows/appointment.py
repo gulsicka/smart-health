@@ -7,6 +7,7 @@ with workflow.unsafe.imports_passed_through():
         validate_appointment_entities,
         check_provider_availability,
         check_for_appointment_conflict,
+        notify_booking_failed,
     )
     from activities.common import failed_workflow
 
@@ -43,6 +44,12 @@ class AppointmentValidationWorkflow:
             print("AppointmentValidationWorkflow completed")
 
         except Exception as e:
+            await workflow.execute_activity(
+                notify_booking_failed,
+                appointment_data,
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
             await workflow.execute_activity(
                 failed_workflow,
                 {"error": str(e), **appointment_data},

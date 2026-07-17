@@ -7,59 +7,58 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 ## Architecture
 
 ```
-                          Client / API Gateway
-           ┌──────────────┬──────────────┬──────────────┐
-           │              │              │              │
-    ┌──────┴──────┐ ┌─────┴──────┐ ┌────┴──────┐ ┌────┴───────────┐
-    │auth-service │ │patient-    │ │provider-  │ │appointment-    │
-    │   :8001     │ │service     │ │service    │ │service         │
-    │             │ │:8002       │ │:8003      │ │:8004           │
-    └──────┬──────┘ └─────┬──────┘ └────┬──────┘ └────┬───────────┘
-           │              │             │              │
-           ▼              ▼             ▼              ▼
-        auth-db       patient-db    provider-db    appoint-db
-      (postgres)      (postgres)    (postgres)     (postgres)
-           │                                         │
-           │ JWT blocklist                           │ appointment.created
-           ▼                                         │ appointment.status_updated
-         Redis  ◄─────────────────────┐              ▼
-       (cache)    analytics counters  │         Apache Kafka
-                                      │              │
-                               ┌──────┴──────┐       │
-                               │ analytics-  │◄──────┘
-                               │ service     │
-                               │ :8005       │
-                               └──────┬──────┘
-                                      │ Celery tasks (send_task)
-                                      ▼
-                                  RabbitMQ
-                                      │
-                               ┌──────┴──────────────┐
-                               │ notification-service │
-                               │ (Celery worker)      │
-                               └──────┬───────────────┘
-                                      │
-                                      ▼
-                                notification-db
-                                  (postgres)
-
-
-  Temporal :7233  ◄──── auth-service (user creation workflow)
-  (Workflow           ◄──── appointment-service (booking validation workflow)
-  Orchestration)
-  temporal-ui :8080
+                    Client / API Gateway
+    +----------+----------+----------+------------+
+    |          |          |          |            |
++---+------++--+------++--+-------++--+-----------+
+| auth-svc || patient- || provider-|| appt-svc    |
+|  :8001   || svc:8002 || svc:8003 || :8004       |
++---+------++--+------++--+-------++--+-----------+
+    |            |           |            |
+    v            v           v            v
+ auth-db     patient-db  provider-db  appt-db
+(postgres)   (postgres)  (postgres)  (postgres)
+    |                                    |
+    | JWT blocklist     appointment.created / status_updated
+    v                                    v
+  Redis                            Apache Kafka
+ (cache)                                 |
+    ^                           +--------+-------+
+    | analytics counters        | analytics-svc  |
+    +---------------------------|    :8005       |
+                                +--------+-------+
+                                         |
+                                  Celery send_task
+                                         |
+    auth-svc ---+                        v
+    appt-svc ---+---> Temporal :7233  RabbitMQ <--+
+                      temporal-ui:8080    |        |
+                            |    +--------+------+ |
+                   +--------+--+ |notification-  | |
+                   |temporal-  | |svc (Celery    | |
+                   |workflow   | |worker)        | |
+                   |(worker)   | +--------+------+ |
+                   |calls:     |          |        |
+                   |patient-,  |          v        |
+                   |provider-, |   notification-db |
+                   |auth-svc   |     (postgres)    |
+                   +--------+--+                   |
+                            |                      |
+                            +--Celery send_task----+
+                            (on WF complete/failure)
 
 
   Observability
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                                                                 │
-  │  all services ──OTLP traces──► Jaeger :16686 (trace viewer)    │
-  │                                                                 │
-  │  Prometheus :9090 ──scrape /metrics──► all services            │
-  │       │                                                         │
-  │       └──► Grafana :3000 (dashboards)                          │
-  │                                                                 │
-  └─────────────────────────────────────────────────────────────────┘
+  +------------------------------------------------------------------+
+  |                                                                  |
+  |  all services --OTLP push (port 4317)--> Jaeger :16686          |
+  |                                          (trace viewer)         |
+  |                                                                  |
+  |  Prometheus :9090 --scrape /metrics--> all services             |
+  |        |                                                         |
+  |        +-> Grafana :3000 (dashboards)                           |
+  |                                                                  |
+  +------------------------------------------------------------------+
 ```
 
 ---

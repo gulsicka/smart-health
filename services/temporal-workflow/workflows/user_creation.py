@@ -9,6 +9,9 @@ with workflow.unsafe.imports_passed_through():
         activate_user,
         fail_user,
         delete_patient_record,
+        delete_provider_record,
+        notify_user_created_activity,
+        notify_user_creation_failed_activity,
     )
 
 
@@ -18,6 +21,7 @@ class UserCreationWorkflow:
     async def run(self, user_data: dict):
         print(f"Starting UserCreationWorkflow for user: {user_data['id']}")
         patient_created = False
+        provider_created = False
 
         try:
             if "patient" in user_data["roles"]:
@@ -36,20 +40,41 @@ class UserCreationWorkflow:
                     start_to_close_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
+                provider_created = True
 
             await workflow.execute_activity(
                 activate_user,
                 {"user_id": user_data["id"]},
                 start_to_close_timeout=timedelta(seconds=10),
-                retry_policy=RetryPolicy(maximum_attempts=10),
+                retry_policy=RetryPolicy(maximum_attempts=3),
             )
+
+            # notification failure does not warrant rollback — user is active in DB
+            try:
+                await workflow.execute_activity(
+                    notify_user_created_activity,
+                    {"user_id": user_data["id"], "roles": user_data["roles"]},
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=5),
+                )
+            except Exception:
+                print(f"notify_user_created failed for user {user_data['id']}, continuing")
+
             print("UserCreationWorkflow completed")
 
         except Exception:
+            # rollback order: provider → patient → user
+            if provider_created:
+                await workflow.execute_activity(
+                    delete_provider_record,
+                    {"id": user_data["id"]},
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=10),
+                )
             if patient_created:
                 await workflow.execute_activity(
                     delete_patient_record,
-                    user_data,
+                    {"id": user_data["id"]},
                     start_to_close_timeout=timedelta(seconds=10),
                     retry_policy=RetryPolicy(maximum_attempts=10),
                 )
@@ -59,4 +84,13 @@ class UserCreationWorkflow:
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=RetryPolicy(maximum_attempts=10),
             )
+            try:
+                await workflow.execute_activity(
+                    notify_user_creation_failed_activity,
+                    {"user_id": user_data["id"]},
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=5),
+                )
+            except Exception:
+                print(f"notify_user_creation_failed dispatch failed for user {user_data['id']}, continuing")
             raise

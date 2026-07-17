@@ -6,7 +6,6 @@ router = APIRouter()
 
 @router.get("/analytics")
 async def get_analytics():
-    # Placeholder for analytics logic
     
     total_appointments = int((await redis_client.get("analytics:total_appointments")) or 0)
     total_completed = int((await redis_client.get("analytics:total_completed")) or 0)

@@ -1,14 +1,12 @@
-from datetime import date, datetime
-from celery import Celery
-
+from datetime import datetime
 from aiokafka import AIOKafkaConsumer
 import redis.asyncio as aioredis
 import json
 from .config import settings
+from .celery_client import notify_booking_confirmation, notify_appointment_cancellation
 
 consumer: AIOKafkaConsumer | None = None
 redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-celery_app = Celery("analytics_service", broker=settings.RABBITMQ_URL)
 
 async def handle_event(event: dict):
     event_type = event.get("event_type")
@@ -20,18 +18,18 @@ async def handle_event(event: dict):
     if event_type == "appointment.created":
         await redis_client.incr("analytics:total_appointments")
         await redis_client.hincrby("analytics:daily_bookings", date, 1)
-        celery_app.send_task("tasks.send_booking_confirmation", args=[patient_id, appointment_id])
+        notify_booking_confirmation(patient_id, appointment_id)
 
     elif event_type == "appointment.status_updated":
         if status == "completed":
             await redis_client.incr("analytics:total_completed")
             await redis_client.hincrby("analytics:daily_completions", date, 1)
         elif status == "confirmed":
-            celery_app.send_task("tasks.send_booking_confirmation", args=[patient_id, appointment_id])
+            notify_booking_confirmation(patient_id, appointment_id)
         elif status == "cancelled":
             await redis_client.incr("analytics:total_cancelled")
             await redis_client.hincrby("analytics:daily_cancellations", date, 1)
-            celery_app.send_task("tasks.send_appointment_cancellation", args=[patient_id, appointment_id])
+            notify_appointment_cancellation(patient_id, appointment_id)
 
 
 async def start_consumer():

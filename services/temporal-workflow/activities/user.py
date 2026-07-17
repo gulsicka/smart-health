@@ -2,6 +2,10 @@ from temporalio import activity
 import clients.auth.api as auth_client
 import clients.patient.api as patient_client
 import clients.provider.api as provider_client
+from notifications import notify_user_created as _dispatch_user_created
+from notifications import notify_user_creation_failed as _dispatch_user_creation_failed
+from notifications import notify_user_role_updated as _dispatch_role_updated
+from notifications import notify_user_role_update_failed as _dispatch_role_update_failed
 
 
 @activity.defn
@@ -37,5 +41,30 @@ async def delete_patient_record(data: dict):
 
 
 @activity.defn
+async def delete_provider_record(data: dict):
+    await provider_client.delete_provider_by_user_id(user_id=data["id"])
+
+
+@activity.defn
 async def remove_user_role_on_failure(data: dict):
     await auth_client.remove_user_roles(data)
+
+
+@activity.defn
+async def notify_user_created_activity(data: dict):
+    _dispatch_user_created(user_id=data["user_id"], roles=data["roles"])
+
+
+@activity.defn
+async def notify_user_creation_failed_activity(data: dict):
+    _dispatch_user_creation_failed(user_id=data["user_id"])
+
+
+@activity.defn
+async def notify_user_role_updated_activity(data: dict):
+    _dispatch_role_updated(user_id=data["user_id"], roles=data["roles"])
+
+
+@activity.defn
+async def notify_user_role_update_failed_activity(data: dict):
+    _dispatch_role_update_failed(user_id=data["user_id"], roles=data["roles"])

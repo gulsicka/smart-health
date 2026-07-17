@@ -34,3 +34,10 @@ def create_provider(db: Session, provider_data: dict):
 def delete_provider(db: Session, provider: models.Provider):
     db.delete(provider)
     db.commit()
+
+
+def delete_provider_by_user_id(db: Session, user_id: int):
+    provider = get_provider_by_user_id(db, user_id)
+    if provider:
+        db.delete(provider)
+        db.commit()

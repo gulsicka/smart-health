@@ -25,6 +25,7 @@ def create_user(db: Session, name: str, email: str, number: str | None, password
         number=number,
         password_hash=utils.hash_password(password),
         roles=roles,
+        status="pending",
     )
     db.add(db_user)
     db.commit()

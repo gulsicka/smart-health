@@ -17,6 +17,7 @@ from .provider import (
     get_providers,
     create_provider,
     delete_provider,
+    delete_provider_by_user_id,
 )
 from .availability import (
     get_availability_by_provider,

@@ -1,3 +1,4 @@
 temporalio
 httpx
 pydantic-settings
+celery
