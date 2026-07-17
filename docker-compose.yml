@@ -34,8 +34,12 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@patient-db:5432/patient_db
       SECRET_KEY: ${SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: patients.events
     depends_on:
       patient-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
   patient-db:
@@ -218,8 +222,9 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: appointments.events
+      PATIENT_KAFKA_TOPIC: patients.events
       REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672// 
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
     depends_on:
       kafka:
         condition: service_healthy

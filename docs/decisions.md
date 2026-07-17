@@ -27,3 +27,27 @@ requested -> confirmed / cancelled / failed
 confirmed -> checked_in / cancelled / no_show
 checked_in -> in_progress / cancelled
 in_progress -> completed / cancelled
+
+9- why kafka for appointment events and not direct HTTP calls between services?
+
+appointment-service doesnt need to know who is consuming its events. if i used direct HTTP, appointment-service would have to call analytics-service explicitly, which creates tight coupling. if analytics goes down, the appointment call fails too. with kafka, appointment-service just publishes to a topic and moves on. analytics-service consumes whenever it's ready. also if i later want another service to react to appointment events, i just add another consumer, no changes needed in appointment-service.
+
+10- why celery + rabbitmq for notifications and not temporal?
+
+temporal is for workflows that need durability, rollback, and retry with state. notifications are fire-and-forget, they dont need all that. if a notification fails it doesnt mean i should undo the appointment or user creation. celery with rabbitmq is a much simpler and lighter fit here. i also didnt want to mix notification logic into the workflow itself because that would make rollback decisions more complicated (should a WF roll back because an email wasnt sent? no.). so i kept them separate and just dispatch a celery task at the end of each workflow.
+
+11- why redis for analytics counters and not querying the DB directly?
+
+the analytics endpoint would be hit frequently. if i queried the DB every time for total appointments, completions etc. it would be slow and put load on the DB. redis keeps these as in-memory counters (incr) so reads are O(1). i update the counters from the kafka consumer as events come in, so the data is always up to date without a single DB query on the analytics endpoint. the only exception is total_patients which comes from a kafka event too (patient.created) so same pattern applies.
+
+12- why not call patient-service directly from analytics-service to get total patients?
+
+inter-service HTTP calls create runtime coupling. if patient-service is down, analytics breaks too. also it goes against the event-driven architecture we already have. instead patient-service publishes a patient.created kafka event when a patient is registered, and analytics-service increments a redis counter from that. analytics never needs to know patient-service exists.
+
+13- why use temporal for user creation and not just doing everything in the auth-service endpoint?
+
+the user creation flow touches multiple services: auth, patient, provider. if any of these fail midway the system ends up in an inconsistent state. temporal handles this with activity retries and a compensation (rollback) pattern. if patient record creation fails, temporal automatically runs the cleanup activities to delete whatever was created and fail the user. doing this in a single HTTP handler would mean writing manual rollback logic in the endpoint, and if the server crashes mid-way there is no recovery. temporal persists workflow state so it can resume even after a crash.
+
+14- why opentelemetry + jaeger and not just logging?
+
+logs tell me what happened in one service. jaeger shows me the full journey of a request across all services with timings. for example if a user creation request is slow, logs in auth-service wont tell me if the delay is in the temporal activity, the patient-service call, or the DB. jaeger shows the entire trace as a waterfall so i can pinpoint exactly where time is being spent. opentelemetry is the standard library for instrumentation and jaeger is just the backend that receives and displays the traces.

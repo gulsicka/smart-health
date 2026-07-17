@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import schemas, auth, crud
+from app import schemas, auth, crud, kafka_producer
 from app.enums import RoleName
 
 router = APIRouter()
@@ -11,14 +11,19 @@ R = RoleName
 
 
 @router.post("/patients", response_model=schemas.Patient)
-def create_patient(
+async def create_patient(
     patient: schemas.PatientCreate,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF)),
 ):
     if crud.get_patient_by_user_id(db, patient.user_id):
         raise HTTPException(status_code=400, detail="Patient profile already exists for this user")
-    return crud.create_patient(db, patient.model_dump())
+    db_patient = crud.create_patient(db, patient.model_dump())
+    await kafka_producer.publish_event(
+        event={"event_type": "patient.created", "patient_id": db_patient.id, "user_id": db_patient.user_id},
+        key=str(db_patient.id),
+    )
+    return db_patient
 
 
 @router.get("/patients", response_model=list[schemas.Patient])
