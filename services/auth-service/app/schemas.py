@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, TypedDict
 from app.enums import RoleName
 
 
@@ -72,3 +72,10 @@ class AuditLog(AuditLogBase):
 
 class RemoveRolesRequest(BaseModel):
     role_names: list[str]
+
+
+class WorkflowUserInput(TypedDict):
+    id: int
+    roles: list[str]
+    date_of_birth: Optional[str]
+    department_id: Optional[int]

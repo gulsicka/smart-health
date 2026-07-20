@@ -1,9 +1,15 @@
 from temporalio.client import Client
+from temporalio.contrib.opentelemetry import TracingInterceptor
 from app.config import settings
+from app.schemas import WorkflowUserInput
 
 
-async def start_user_creation_workflow(user_data: dict, workflow_id: str):
-    client = await Client.connect(settings.TEMPORAL_HOST, namespace=settings.TEMPORAL_NAMESPACE)
+async def start_user_creation_workflow(user_data: WorkflowUserInput, workflow_id: str):
+    client = await Client.connect(
+        settings.TEMPORAL_HOST,
+        namespace=settings.TEMPORAL_NAMESPACE,
+        interceptors=[TracingInterceptor()],
+    )
     handle = await client.start_workflow(
         "UserCreationWorkflow",
         user_data,
@@ -12,8 +18,13 @@ async def start_user_creation_workflow(user_data: dict, workflow_id: str):
     )
     return handle
 
-async def start_update_user_role_workflow(user_data: dict, workflow_id: str):
-    client = await Client.connect(settings.TEMPORAL_HOST, namespace=settings.TEMPORAL_NAMESPACE)
+
+async def start_update_user_role_workflow(user_data: WorkflowUserInput, workflow_id: str):
+    client = await Client.connect(
+        settings.TEMPORAL_HOST,
+        namespace=settings.TEMPORAL_NAMESPACE,
+        interceptors=[TracingInterceptor()],
+    )
     handle = await client.start_workflow(
         "UpdateUserWorkflow",
         user_data,

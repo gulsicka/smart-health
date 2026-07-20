@@ -10,16 +10,17 @@ with workflow.unsafe.imports_passed_through():
         notify_user_role_updated_activity,
         notify_user_role_update_failed_activity,
     )
+    from schemas import UserInput, NotifyUserInput
 
 
 @workflow.defn
 class UpdateUserWorkflow:
     @workflow.run
-    async def run(self, user_data: dict):
-        print(f"Starting UpdateUserWorkflow for user: {user_data['id']}")
+    async def run(self, user_data: UserInput):
+        print(f"Starting UpdateUserWorkflow for user: {user_data.id}")
 
         try:
-            if "patient" in user_data["roles"]:
+            if "patient" in user_data.roles:
                 await workflow.execute_activity(
                     create_patient_record,
                     user_data,
@@ -27,7 +28,7 @@ class UpdateUserWorkflow:
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
 
-            if "provider" in user_data["roles"]:
+            if "provider" in user_data.roles:
                 await workflow.execute_activity(
                     create_provider_record,
                     user_data,
@@ -38,17 +39,17 @@ class UpdateUserWorkflow:
             try:
                 await workflow.execute_activity(
                     notify_user_role_updated_activity,
-                    {"user_id": user_data["id"], "roles": user_data["roles"]},
+                    NotifyUserInput(user_id=user_data.id, roles=user_data.roles),
                     start_to_close_timeout=timedelta(seconds=10),
                     retry_policy=RetryPolicy(maximum_attempts=5),
                 )
             except Exception:
-                print(f"notify_user_role_updated failed for user {user_data['id']}, continuing")
+                print(f"notify_user_role_updated failed for user {user_data.id}, continuing")
 
             print("UpdateUserWorkflow completed")
 
         except Exception as e:
-            print(f"UpdateUserWorkflow failed for user: {user_data['id']}, error: {e}")
+            print(f"UpdateUserWorkflow failed for user: {user_data.id}, error: {e}")
             await workflow.execute_activity(
                 remove_user_role_on_failure,
                 user_data,
@@ -58,10 +59,10 @@ class UpdateUserWorkflow:
             try:
                 await workflow.execute_activity(
                     notify_user_role_update_failed_activity,
-                    {"user_id": user_data["id"], "roles": user_data["roles"]},
+                    NotifyUserInput(user_id=user_data.id, roles=user_data.roles),
                     start_to_close_timeout=timedelta(seconds=10),
                     retry_policy=RetryPolicy(maximum_attempts=5),
                 )
             except Exception:
-                print(f"notify_user_role_update_failed dispatch failed for user {user_data['id']}, continuing")
+                print(f"notify_user_role_update_failed dispatch failed for user {user_data.id}, continuing")
             raise

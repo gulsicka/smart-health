@@ -1,12 +1,12 @@
 from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app import models
+from app import models, schemas
 from app.enums import AppointmentStatus
 
 
-def create_appointment_internal(db: Session, appointment_data: dict):
-    db_appointment = models.Appointment(**appointment_data)
+def create_appointment_internal(db: Session, appointment_data: schemas.AppointmentCreate):
+    db_appointment = models.Appointment(**appointment_data.model_dump())
     db.add(db_appointment)
     try:
         db.commit()
@@ -14,9 +14,9 @@ def create_appointment_internal(db: Session, appointment_data: dict):
         db.rollback()
         # Slot already exists — return the existing record (idempotency)
         return db.query(models.Appointment).filter(
-            models.Appointment.provider_id == appointment_data["provider_id"],
-            models.Appointment.date == appointment_data["date"],
-            models.Appointment.start_time == appointment_data["start_time"],
+            models.Appointment.provider_id == appointment_data.provider_id,
+            models.Appointment.date == appointment_data.date,
+            models.Appointment.start_time == appointment_data.start_time,
         ).first()
     db.refresh(db_appointment)
     return db_appointment

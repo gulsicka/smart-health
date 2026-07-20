@@ -22,7 +22,7 @@ async def lifespan(app):
     await kafka_producer.stop_producer() #shutdown
 
 app = FastAPI(lifespan=lifespan)
-FastAPIInstrumentor.instrument_app(app)
+FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(appointment.router)

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app import models
+from app import models, schemas
 
 
 def get_patient_by_user_id(db: Session, user_id: int):
@@ -14,16 +14,16 @@ def get_all_patients(db: Session):
     return db.query(models.Patient).all()
 
 
-def create_patient(db: Session, patient_data: dict):
-    db_patient = models.Patient(**patient_data)
+def create_patient(db: Session, patient_data: schemas.PatientCreate):
+    db_patient = models.Patient(**patient_data.model_dump())
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
     return db_patient
 
 
-def update_patient(db: Session, patient: models.Patient, updates: dict):
-    for field, value in updates.items():
+def update_patient(db: Session, patient: models.Patient, updates: schemas.PatientUpdate):
+    for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(patient, field, value)
     db.commit()
     db.refresh(patient)

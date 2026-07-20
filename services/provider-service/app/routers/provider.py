@@ -20,7 +20,7 @@ def create_provider(
         raise HTTPException(status_code=404, detail="Department not found")
     if crud.get_provider_by_user_id(db, provider.user_id):
         raise HTTPException(status_code=400, detail="Provider already exists for this user")
-    return crud.create_provider(db, provider.model_dump())
+    return crud.create_provider(db, provider)
 
 
 @router.get("/providers", response_model=list[schemas.Provider])

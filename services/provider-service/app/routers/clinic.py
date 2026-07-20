@@ -16,7 +16,7 @@ def create_clinic(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
-    return crud.create_clinic(db, clinic.model_dump())
+    return crud.create_clinic(db, clinic)
 
 
 @router.get("/clinics", response_model=list[schemas.Clinic])

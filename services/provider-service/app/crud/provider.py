@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app import models
+from app import models, schemas
 
 
 def get_provider_by_id(db: Session, provider_id: int):
@@ -23,8 +23,8 @@ def get_providers(db: Session, clinic_id: int | None = None, department_id: int 
     return query.all()
 
 
-def create_provider(db: Session, provider_data: dict):
-    db_provider = models.Provider(**provider_data)
+def create_provider(db: Session, provider_data: schemas.ProviderCreate):
+    db_provider = models.Provider(**provider_data.model_dump())
     db.add(db_provider)
     db.commit()
     db.refresh(db_provider)

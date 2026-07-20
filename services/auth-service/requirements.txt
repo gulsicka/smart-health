@@ -8,7 +8,7 @@ pydantic[email]
 bcrypt
 python-jose[cryptography]
 python-multipart
-temporalio
+temporalio[opentelemetry]
 pydantic-settings
 redis
 prometheus-fastapi-instrumentator

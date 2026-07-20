@@ -2,6 +2,19 @@ import asyncio
 from temporalio.client import Client
 from temporalio.worker import Worker
 from config import settings
+from temporalio.contrib.opentelemetry import TracingInterceptor
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+resource = Resource.create({"service.name": "temporal-workflow"})
+otel_provider = TracerProvider(resource=resource)
+otel_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True)))
+trace.set_tracer_provider(otel_provider)
+HTTPXClientInstrumentor().instrument()
 
 from workflows.user_creation import UserCreationWorkflow
 from workflows.appointment import AppointmentValidationWorkflow
@@ -37,7 +50,7 @@ UPDATE_USER_ROLE_TASK_QUEUE = settings.UPDATE_USER_ROLE_TASK_QUEUE
 async def main():
     while True:
         try:
-            client = await Client.connect(TEMPORAL_HOST, namespace=settings.TEMPORAL_NAMESPACE)
+            client = await Client.connect(TEMPORAL_HOST, namespace=settings.TEMPORAL_NAMESPACE, interceptors=[TracingInterceptor()])
             break
         except Exception:
             print("Waiting for Temporal...")
@@ -57,6 +70,7 @@ async def main():
             notify_user_created_activity,
             notify_user_creation_failed_activity,
         ],
+        interceptors=[TracingInterceptor()],
     )
 
     appointment_validation_worker = Worker(
@@ -64,6 +78,7 @@ async def main():
         task_queue=APPOINTMENT_TASK_QUEUE,
         workflows=[AppointmentValidationWorkflow],
         activities=[validate_appointment_entities, check_provider_availability, check_for_appointment_conflict, failed_workflow, notify_booking_failed],
+        interceptors=[TracingInterceptor()],
     )
     
     update_user_role_worker = Worker(
@@ -77,6 +92,7 @@ async def main():
             notify_user_role_updated_activity,
             notify_user_role_update_failed_activity,
         ],
+        interceptors=[TracingInterceptor()],
     )
 
     await asyncio.gather(

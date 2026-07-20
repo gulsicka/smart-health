@@ -64,7 +64,7 @@ async def create_appointment_internal(
     appointment: schemas.AppointmentCreate,
     db: Session = Depends(get_db),
 ):
-    result =  crud.create_appointment_internal(db, appointment.model_dump())
+    result = crud.create_appointment_internal(db, appointment)
     await kafka_producer.publish_event(
         event={
             "appointment_id": result.id,

@@ -26,7 +26,7 @@ provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http:/
 trace.set_tracer_provider(provider)
 
 app = FastAPI(lifespan=lifespan)
-FastAPIInstrumentor.instrument_app(app)
+FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(analytics.router)

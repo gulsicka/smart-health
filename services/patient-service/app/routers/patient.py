@@ -18,7 +18,7 @@ async def create_patient(
 ):
     if crud.get_patient_by_user_id(db, patient.user_id):
         raise HTTPException(status_code=400, detail="Patient profile already exists for this user")
-    db_patient = crud.create_patient(db, patient.model_dump())
+    db_patient = crud.create_patient(db, patient)
     await kafka_producer.publish_event(
         event={"event_type": "patient.created", "patient_id": db_patient.id, "user_id": db_patient.user_id},
         key=str(db_patient.id),
@@ -56,7 +56,7 @@ def update_patient(
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-    return crud.update_patient(db, patient, updates.model_dump(exclude_unset=True))
+    return crud.update_patient(db, patient, updates)
 
 
 @router.delete("/patients/{patient_id}")

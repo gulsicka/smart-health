@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app import models
+from app import models, schemas
 
 
 def get_clinic_by_id(db: Session, clinic_id: int):
@@ -10,8 +10,8 @@ def get_all_clinics(db: Session):
     return db.query(models.Clinic).all()
 
 
-def create_clinic(db: Session, clinic_data: dict):
-    db_clinic = models.Clinic(**clinic_data)
+def create_clinic(db: Session, clinic_data: schemas.ClinicCreate):
+    db_clinic = models.Clinic(**clinic_data.model_dump())
     db.add(db_clinic)
     db.commit()
     db.refresh(db_clinic)

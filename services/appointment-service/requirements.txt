@@ -7,7 +7,7 @@ alembic
 pydantic[email]
 python-jose[cryptography]
 python-multipart
-temporalio
+temporalio[opentelemetry]
 pydantic-settings
 aiokafka
 prometheus-fastapi-instrumentator

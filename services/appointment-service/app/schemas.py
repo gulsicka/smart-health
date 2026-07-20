@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from app.enums import RoleName, AppointmentStatus
 from datetime import datetime, date, time
-from typing import Optional
+from typing import Optional, TypedDict
 
 
 
@@ -39,3 +39,13 @@ class BookedSlot(BaseModel):
     start_time: time
     end_time: time
     status: AppointmentStatus
+
+
+class WorkflowAppointmentInput(TypedDict):
+    patient_id: int
+    provider_id: int
+    clinic_id: int
+    department_id: int
+    date: str
+    start_time: str
+    end_time: str

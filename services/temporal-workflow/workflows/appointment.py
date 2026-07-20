@@ -10,12 +10,13 @@ with workflow.unsafe.imports_passed_through():
         notify_booking_failed,
     )
     from activities.common import failed_workflow
+    from schemas import AppointmentInput, FailedWorkflowInput
 
 
 @workflow.defn
 class AppointmentValidationWorkflow:
     @workflow.run
-    async def run(self, appointment_data: dict):
+    async def run(self, appointment_data: AppointmentInput):
         print(f"Starting AppointmentValidationWorkflow: {appointment_data}")
         try:
             await workflow.execute_activity(
@@ -52,7 +53,7 @@ class AppointmentValidationWorkflow:
             )
             await workflow.execute_activity(
                 failed_workflow,
-                {"error": str(e), **appointment_data},
+                FailedWorkflowInput(error=str(e)),
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=RetryPolicy(maximum_attempts=3),
             )
