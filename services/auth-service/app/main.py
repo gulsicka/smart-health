@@ -1,5 +1,8 @@
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.routers import user, role
+from app import kafka_producer, kafka_consumer
 from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -9,21 +12,29 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 resource = Resource.create({"service.name": "auth-service"})
-provider = TracerProvider(resource=resource)
-provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True)))
-trace.set_tracer_provider(provider)
+otel_provider = TracerProvider(resource=resource)
+otel_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True)))
+trace.set_tracer_provider(otel_provider)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app):
+    await kafka_producer.start_producer()
+    await kafka_consumer.start_consumer()
+    asyncio.create_task(kafka_consumer.consume_events())
+    yield
+    await kafka_producer.stop_producer()
+    await kafka_consumer.stop_consumer()
+
+
+app = FastAPI(lifespan=lifespan)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(user.router)
 app.include_router(role.router)
 
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "auth-service"}
-
-
-
-

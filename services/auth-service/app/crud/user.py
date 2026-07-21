@@ -52,6 +52,13 @@ def delete_user(db: Session, user: models.User):
     db.commit()
 
 
+def soft_delete_user(db: Session, user: models.User):
+    user.status = "deleted"
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def activate_user(db: Session, user: models.User):
     user.status = "active"
     db.commit()

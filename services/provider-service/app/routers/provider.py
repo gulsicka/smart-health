@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from app.database import get_db
-from app import schemas, auth, crud
+from app import schemas, auth, crud, kafka_producer
 from app.enums import RoleName
 
 router = APIRouter()
@@ -58,17 +58,19 @@ def get_provider(
 
 
 @router.delete("/providers/by-user-id/{user_id}")
-def delete_provider_by_user_id(
+async def delete_provider_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
-    crud.delete_provider_by_user_id(db, user_id)
+    provider = crud.soft_delete_provider_by_user_id(db, user_id)
+    if provider:
+        await kafka_producer.publish_provider_deleted(provider.id, user_id)
     return {"message": "Provider deleted"}
 
 
 @router.delete("/providers/{provider_id}")
-def delete_provider(
+async def delete_provider(
     provider_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
@@ -76,7 +78,8 @@ def delete_provider(
     provider = crud.get_provider_by_id(db, provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
-    crud.delete_provider(db, provider)
+    crud.soft_delete_provider(db, provider)
+    await kafka_producer.publish_provider_deleted(provider.id, provider.user_id)
     return {"message": "Provider deleted"}
 
 

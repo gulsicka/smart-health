@@ -10,7 +10,6 @@ class Appointment(Base):
     patient_id = Column(Integer, nullable=False)      # cross-service ref, no FK
     provider_id = Column(Integer, nullable=False)     # cross-service ref, no FK
     clinic_id = Column(Integer, nullable=False)       # cross-service ref, no FK
-    department_id = Column(Integer, nullable=False)   # cross-service ref, no FK
     date = Column(Date, nullable=False)               # e.g. 2026-07-10
     start_time = Column(Time, nullable=False)         # e.g. 14:00
     end_time = Column(Time, nullable=False)           # e.g. 14:30

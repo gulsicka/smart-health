@@ -6,4 +6,6 @@ from .patient import (
     update_patient,
     delete_patient,
     delete_patient_by_user_id,
+    soft_delete_patient,
+    soft_delete_patient_by_user_id,
 )

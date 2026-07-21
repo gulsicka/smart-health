@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import schemas, utils, auth, crud, tasks
+from app import schemas, utils, auth, crud, tasks, kafka_producer
 from app.utils import workflow_id_for, workflow_id_for_update
 from app.enums import RoleName, UserStatus
 from app.config import settings
@@ -114,7 +114,7 @@ async def update_user(
     return updated_user
 
 @router.delete("/users/{user_id}")
-def delete_user(
+async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
@@ -122,7 +122,8 @@ def delete_user(
     user = crud.get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    crud.delete_user(db, user)
+    crud.soft_delete_user(db, user)
+    await kafka_producer.publish_user_deleted(user_id)
     return {"message": "User deleted"}
 
 

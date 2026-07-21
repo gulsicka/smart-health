@@ -14,7 +14,6 @@ class AppointmentCreate(BaseModel):
     patient_id: int
     provider_id: int
     clinic_id: int
-    department_id: int
     date: date
     start_time: time
     end_time: time
@@ -45,7 +44,6 @@ class WorkflowAppointmentInput(TypedDict):
     patient_id: int
     provider_id: int
     clinic_id: int
-    department_id: int
     date: str
     start_time: str
     end_time: str

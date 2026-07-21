@@ -18,17 +18,9 @@ async def stop_producer():
     await producer.stop()
 
 
-async def publish_event(event: dict, key: str):
+async def publish_provider_deleted(provider_id: int, user_id: int):
     await producer.send_and_wait(
         settings.KAFKA_TOPIC,
-        value=event,
-        key=key.encode("utf-8"),
-    )
-
-
-async def publish_patient_deleted(patient_id: int, user_id: int):
-    await producer.send_and_wait(
-        settings.KAFKA_TOPIC,
-        value={"event_type": "patient.deleted", "patient_id": patient_id, "user_id": user_id},
-        key=str(patient_id).encode("utf-8"),
+        value={"event_type": "provider.deleted", "provider_id": provider_id, "user_id": user_id},
+        key=str(provider_id).encode("utf-8"),
     )

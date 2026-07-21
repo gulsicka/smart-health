@@ -6,6 +6,7 @@ from .user import (
     create_user,
     update_user,
     delete_user,
+    soft_delete_user,
     activate_user,
     remove_user_roles,
 )

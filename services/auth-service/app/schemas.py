@@ -50,6 +50,7 @@ class User(BaseModel):
     email: EmailStr
     number: Optional[str] = None
     roles: list[Role]
+    status: str = "pending"
     created_at: datetime
     class Config:
         from_attributes = True

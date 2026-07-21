@@ -5,4 +5,6 @@ from .appointment import (
     update_appointment_status,
     get_booked_slots,
     delete_appointment,
+    cancel_appointments_by_patient_id,
+    cancel_appointments_by_provider_id,
 )

@@ -60,7 +60,7 @@ def update_patient(
 
 
 @router.delete("/patients/{patient_id}")
-def delete_patient(
+async def delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
@@ -68,15 +68,18 @@ def delete_patient(
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-    crud.delete_patient(db, patient)
+    crud.soft_delete_patient(db, patient)
+    await kafka_producer.publish_patient_deleted(patient.id, patient.user_id)
     return {"message": "Patient deleted"}
 
 
 @router.delete("/patients/by-user-id/{user_id}")
-def delete_patient_by_user_id(
+async def delete_patient_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
-    crud.delete_patient_by_user_id(db, user_id)
-    return {"message": "Patient deleted"}  # idempotent - 200 even if not found
+    patient = crud.soft_delete_patient_by_user_id(db, user_id)
+    if patient:
+        await kafka_producer.publish_patient_deleted(patient.id, user_id)
+    return {"message": "Patient deleted"}

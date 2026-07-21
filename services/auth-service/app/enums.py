@@ -9,3 +9,4 @@ class RoleName(str, Enum):
 class UserStatus(str, Enum):
     PENDING = "pending"
     ACTIVE  = "active"
+    DELETED = "deleted"

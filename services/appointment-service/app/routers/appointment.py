@@ -48,11 +48,9 @@ async def create_appointment(
             "patient_id": appointment.patient_id,
             "provider_id": appointment.provider_id,
             "clinic_id": appointment.clinic_id,
-            "department_id": appointment.department_id,
             "date": appointment.date.isoformat(),
             "start_time": appointment.start_time.isoformat(),
             "end_time": appointment.end_time.isoformat(),
-            
         },
         workflow_id=workflow_id,
     )
@@ -71,7 +69,6 @@ async def create_appointment_internal(
             "patient_id": result.patient_id,
             "provider_id": result.provider_id,
             "clinic_id": result.clinic_id,
-            "department_id": result.department_id,
             "date": result.date.isoformat(),
             "start_time": result.start_time.isoformat(),
             "end_time": result.end_time.isoformat(),
@@ -134,11 +131,10 @@ async def update_appointment_status(
     updated  = crud.update_appointment_status(db, appointment, new_status)
     await kafka_producer.publish_event(
     event={
-       "appointment_id": updated.id,
+            "appointment_id": updated.id,
             "patient_id": updated.patient_id,
             "provider_id": updated.provider_id,
             "clinic_id": updated.clinic_id,
-            "department_id": updated.department_id,
             "date": updated.date.isoformat(),
             "start_time": updated.start_time.isoformat(),
             "end_time": updated.end_time.isoformat(),

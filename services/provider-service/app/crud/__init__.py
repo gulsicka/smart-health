@@ -18,6 +18,8 @@ from .provider import (
     create_provider,
     delete_provider,
     delete_provider_by_user_id,
+    soft_delete_provider,
+    soft_delete_provider_by_user_id,
 )
 from .availability import (
     get_availability_by_provider,

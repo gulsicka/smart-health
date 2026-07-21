@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     KAFKA_BOOTSTRAP_SERVERS: str
     KAFKA_TOPIC: str
+    USERS_KAFKA_TOPIC: str = "users.events"
 
 
 settings = Settings()

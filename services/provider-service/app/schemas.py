@@ -52,6 +52,7 @@ class ProviderUpdate(BaseModel):
 
 class Provider(ProviderBase):
     id: int
+    is_deleted: bool
     class Config:
         from_attributes = True
 

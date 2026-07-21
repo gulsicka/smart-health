@@ -25,6 +25,7 @@ class PatientUpdate(BaseModel):
 
 class Patient(PatientBase):
     id: int
+    is_deleted: bool
 
     class Config:
         from_attributes = True

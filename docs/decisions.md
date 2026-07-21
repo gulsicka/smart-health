@@ -51,3 +51,11 @@ the user creation flow touches multiple services: auth, patient, provider. if an
 14- why opentelemetry + jaeger and not just logging?
 
 logs tell me what happened in one service. jaeger shows me the full journey of a request across all services with timings. for example if a user creation request is slow, logs in auth-service wont tell me if the delay is in the temporal activity, the patient-service call, or the DB. jaeger shows the entire trace as a waterfall so i can pinpoint exactly where time is being spent. opentelemetry is the standard library for instrumentation and jaeger is just the backend that receives and displays the traces.
+
+15- orphan data across services, what happens if a user is deleted but their patient/provider record still exists?
+
+since each service has its own DB there are no cross-DB foreign keys. if a user is deleted from auth-service, the patient and provider records in their respective DBs still have that user_id with nothing to reference. this is called orphan data and it is a real consistency problem in microservices.
+the fix i would implement is soft deletes with role-aware cleanup. there are two separate cases:
+    case 1: patient or provider record is deleted: this does not mean the user is gone. a user can have multiple roles. if a patient record is deleted, i just remove the patient role from the user in auth-service (PATCH /users/{id}/remove_roles already exists). same for provider. the user stays active and can still hold other roles like fd_staff or admin. no is_deleted needed on the user.
+    case 2: the user itself is deleted: this is where orphan data actually happens. i would add is_deleted to the patients and providers tables and set status = 'deleted' on the user in auth. when a user is deleted, auth-service publishes a user.deleted kafka event. patient-service and provider-service consume it and set is_deleted = true on matching records. appointment-service also consumes it and cancels any active appointments for that patient or provider.
+medical records should not be physically deleted for audit and legal reasons, so soft delete is the right approach regardless.

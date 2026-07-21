@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     USER_TASK_QUEUE: str
     REDIS_URL: str
     UPDATE_USER_ROLE_TASK_QUEUE: str
+    KAFKA_BOOTSTRAP_SERVERS: str
+    KAFKA_TOPIC: str = "users.events"
+    PATIENT_KAFKA_TOPIC: str = "patients.events"
+    PROVIDER_KAFKA_TOPIC: str = "providers.events"
 
 
 settings = Settings()

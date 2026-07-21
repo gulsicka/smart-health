@@ -40,3 +40,19 @@ def delete_patient_by_user_id(db: Session, user_id: int):
     if patient:
         db.delete(patient)
         db.commit()
+
+
+def soft_delete_patient(db: Session, patient: models.Patient):
+    patient.is_deleted = True
+    db.commit()
+    db.refresh(patient)
+    return patient
+
+
+def soft_delete_patient_by_user_id(db: Session, user_id: int):
+    patient = get_patient_by_user_id(db, user_id)
+    if patient and not patient.is_deleted:
+        patient.is_deleted = True
+        db.commit()
+        return patient
+    return patient

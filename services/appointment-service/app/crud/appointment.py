@@ -49,3 +49,33 @@ def get_booked_slots(db: Session, provider_id: int, date: date, clinic_id: int):
 def delete_appointment(db: Session, appointment: models.Appointment):
     db.delete(appointment)
     db.commit()
+
+
+def cancel_appointments_by_patient_id(db: Session, patient_id: int):
+    active_statuses = [
+        AppointmentStatus.REQUESTED,
+        AppointmentStatus.CONFIRMED,
+        AppointmentStatus.CHECKED_IN,
+    ]
+    appointments = db.query(models.Appointment).filter(
+        models.Appointment.patient_id == patient_id,
+        models.Appointment.status.in_(active_statuses),
+    ).all()
+    for appt in appointments:
+        appt.status = AppointmentStatus.CANCELLED
+    db.commit()
+
+
+def cancel_appointments_by_provider_id(db: Session, provider_id: int):
+    active_statuses = [
+        AppointmentStatus.REQUESTED,
+        AppointmentStatus.CONFIRMED,
+        AppointmentStatus.CHECKED_IN,
+    ]
+    appointments = db.query(models.Appointment).filter(
+        models.Appointment.provider_id == provider_id,
+        models.Appointment.status.in_(active_statuses),
+    ).all()
+    for appt in appointments:
+        appt.status = AppointmentStatus.CANCELLED
+    db.commit()

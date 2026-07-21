@@ -41,3 +41,17 @@ def delete_provider_by_user_id(db: Session, user_id: int):
     if provider:
         db.delete(provider)
         db.commit()
+
+
+def soft_delete_provider(db: Session, provider: models.Provider):
+    provider.is_deleted = True
+    db.commit()
+    db.refresh(provider)
+    return provider
+
+
+def soft_delete_provider_by_user_id(db: Session, user_id: int):
+    provider = get_provider_by_user_id(db, user_id)
+    if provider:
+        return soft_delete_provider(db, provider)
+    return None

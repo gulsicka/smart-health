@@ -10,8 +10,14 @@ services:
       USER_TASK_QUEUE: user_creation_queue
       REDIS_URL: redis://redis:6379
       UPDATE_USER_ROLE_TASK_QUEUE: user_update_queue
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: users.events
+      PATIENT_KAFKA_TOPIC: patients.events
+      PROVIDER_KAFKA_TOPIC: providers.events
     depends_on:
       auth-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
   auth-db:
@@ -62,8 +68,13 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
       SECRET_KEY: ${SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: providers.events
+      USERS_KAFKA_TOPIC: users.events
     depends_on:
       provider-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
   provider-db:
