@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     PATIENT_KAFKA_TOPIC: str
     REDIS_URL: str
     RABBITMQ_URL: str
+    DATABASE_URL: str
 
 
 settings = Settings()

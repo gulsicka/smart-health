@@ -27,8 +27,10 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
     | analytics counters        | analytics-svc  |
     +---------------------------|    :8005       |
                                 +--------+-------+
-                                         |
-                                  Celery send_task
+                                         |         \
+                                         |      analytics-db
+                                  Celery | (TimescaleDB :5435)
+                                  send_task
                                          |
     auth-svc ---+                        v
     appt-svc ---+---> Temporal :7233  RabbitMQ <--+
@@ -46,6 +48,26 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
                             |                      |
                             +--Celery send_task----+
                             (on WF complete/failure)
+
+
+  Orphan Data / Cascade Cleanup (Kafka event chain)
+  +-----------------------------------------------------------------------+
+  |                                                                       |
+  |  DELETE /users/{id}                                                   |
+  |    auth-svc --[users.events: user.deleted]--> patient-svc            |
+  |                                               provider-svc            |
+  |    patient-svc  --[patients.events: patient.deleted]--> auth-svc     |
+  |                                                          (remove role)|
+  |                                               appt-svc (cancel appts)|
+  |    provider-svc --[providers.events: provider.deleted]--> auth-svc   |
+  |                                                           (remove role|
+  |                                               appt-svc (cancel appts)|
+  |                                                                       |
+  |  DELETE /patients/{id} --> patients.events --> auth removes role      |
+  |                                            --> appt cancels appts     |
+  |  DELETE /providers/{id} --> providers.events --> auth removes role    |
+  |                                             --> appt cancels appts    |
+  +-----------------------------------------------------------------------+
 
 
   Observability
@@ -71,7 +93,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | patient-service | 8002 | Patient profile CRUD |
 | provider-service | 8003 | Providers, clinics, departments, availability |
 | appointment-service | 8004 | Booking, status updates, Kafka event publishing |
-| analytics-service | 8005 | Kafka consumer, Redis counters, analytics API |
+| analytics-service | 8005 | Kafka consumer, Redis counters, TimescaleDB event store, analytics API |
 | notification-service | — | Celery worker, persists notifications to Postgres |
 | temporal-workflow | — | Temporal worker for user creation + appointment validation workflows |
 
@@ -88,6 +110,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | Message Streaming | Apache Kafka (KRaft, no Zookeeper) |
 | Async Task Queue | Celery + RabbitMQ |
 | Caching / Counters | Redis |
+| Time-Series Analytics DB | TimescaleDB (PostgreSQL extension) |
 | Monitoring | Prometheus + Grafana |
 | Containerization | Docker + Docker Compose |
 
@@ -144,7 +167,7 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 | GET | `/users/{id}` | Admin | Get user by ID |
 | PUT | `/users/{id}` | Admin | Update user |
 | PATCH | `/users/{id}/activate` | Admin | Activate user |
-| DELETE | `/users/{id}` | Admin | Delete user |
+| DELETE | `/users/{id}` | Admin | Soft-delete user, triggers Kafka cascade cleanup |
 | POST | `/roles` | Admin | Create role |
 | GET | `/roles` | Admin | List roles |
 | DELETE | `/roles/{id}` | Admin | Delete role |
@@ -157,7 +180,7 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 | GET | `/patients` | List all patients |
 | GET | `/patients/{id}` | Get patient |
 | PUT | `/patients/{id}` | Update patient |
-| DELETE | `/patients/{id}` | Delete patient |
+| DELETE | `/patients/{id}` | Soft-delete patient, removes patient role from user, cancels appointments |
 
 ### Provider Service — `localhost:8003`
 
@@ -190,7 +213,9 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/analytics` | Total appointments, completions, cancellations, daily breakdowns |
+| GET | `/analytics` | Total appointments, completions, cancellations, daily breakdowns (Redis counters) |
+| GET | `/analytics/filter` | Filter events by date range, clinic, provider — grouped by day and event type (TimescaleDB) |
+| GET | `/analytics/total-created` | Count of a specific event type between two dates (TimescaleDB) |
 
 ---
 
@@ -203,6 +228,10 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 **Temporal for workflow orchestration** — User creation and appointment booking run as Temporal workflows, giving retries, visibility, and compensation logic out of the box.
 
 **Celery + RabbitMQ for notifications** — analytics-service dispatches notification tasks by name (`send_task("tasks.send_booking_confirmation", ...)`), keeping services decoupled. notification-service runs as a Celery worker with no HTTP server.
+
+**Orphan data handling via Kafka event chain** — Since there are no cross-DB foreign keys, deleting a record in one service does not automatically cascade. Three flows are handled: (1) deleting a patient record removes the patient role from the user and cancels their appointments; (2) deleting a provider record removes the provider role from the user and cancels their appointments; (3) deleting a user soft-deletes their patient and provider records and cancels all active appointments. Soft delete (`is_deleted` flag on patients/providers, `status=deleted` on users) is used instead of hard delete so medical records are preserved for audit and legal compliance.
+
+**TimescaleDB for analytics** — Every appointment event consumed from Kafka is persisted to a TimescaleDB hypertable (`appointment_events`). TimescaleDB is a PostgreSQL extension that partitions data automatically by time, making range queries and aggregations fast. `time_bucket()` is used to group events into daily buckets for filtered analytics. Redis counters handle real-time totals; TimescaleDB handles historical, filterable queries.
 
 **Per-service databases** — Each service owns its Postgres database. No cross-service foreign keys; references are by ID only.
 

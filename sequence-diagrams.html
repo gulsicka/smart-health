@@ -382,5 +382,103 @@
   </div>
 </div>
 
+
+<div class="diagram-section">
+  <h2>4 · Analytics — TimescaleDB Event Ingestion &amp; Filtered Query</h2>
+  <p>Appointment events flow from Kafka into TimescaleDB. Clients query /analytics/filter using time_bucket() to get daily aggregates filtered by clinic or provider.</p>
+
+  <svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="a4"  markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#555"/></marker>
+      <marker id="a4r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#aaa"/></marker>
+      <marker id="a4g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1b5e20"/></marker>
+      <marker id="a4b" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1565c0"/></marker>
+    </defs>
+
+    <!-- Actors -->
+    <rect x="5"   y="8" width="90"  height="28" rx="5" fill="#fff3e0"/><text x="50"  y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#e65100">Appt Service</text>
+    <rect x="118" y="8" width="70"  height="28" rx="5" fill="#fce4ec"/><text x="153" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#c62828">Kafka</text>
+    <rect x="213" y="8" width="105" height="28" rx="5" fill="#ede7f6"/><text x="265" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#4527a0">Analytics Svc</text>
+    <rect x="342" y="8" width="65"  height="28" rx="5" fill="#e3f2fd"/><text x="374" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">Redis</text>
+    <rect x="432" y="8" width="110" height="28" rx="5" fill="#e8f5e9"/><text x="487" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#1b5e20">TimescaleDB</text>
+    <rect x="569" y="8" width="70"  height="28" rx="5" fill="#e8f4fd"/><text x="604" y="27" text-anchor="middle" font-size="11" font-weight="600" fill="#1565c0">Client</text>
+
+    <!-- Lifelines -->
+    <line x1="50"  y1="36" x2="50"  y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="153" y1="36" x2="153" y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="265" y1="36" x2="265" y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="374" y1="36" x2="374" y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="487" y1="36" x2="487" y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="604" y1="36" x2="604" y2="420" stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+    <!-- Section label: event ingestion -->
+    <rect x="0" y="46" width="760" height="14" rx="3" fill="#f3e5f5" opacity="0.6"/>
+    <text x="380" y="57" text-anchor="middle" font-size="9" fill="#6a1b9a" font-weight="600">— EVENT INGESTION (Kafka consumer loop) —</text>
+
+    <!-- 1. publish appointment.created -->
+    <line x1="50" y1="72" x2="145" y2="72" stroke="#555" stroke-width="1.5" marker-end="url(#a4)"/>
+    <text x="97" y="65" text-anchor="middle" font-size="10" fill="#333" font-weight="600">appointment.created / status_updated</text>
+
+    <!-- 2. consume event -->
+    <line x1="153" y1="89" x2="257" y2="89" stroke="#7b1fa2" stroke-width="1.5" marker-end="url(#a4)"/>
+    <text x="205" y="82" text-anchor="middle" font-size="10" fill="#7b1fa2">consume_events()</text>
+
+    <!-- 3. dedup check Redis -->
+    <line x1="265" y1="106" x2="366" y2="106" stroke="#555" stroke-width="1.5" marker-end="url(#a4)"/>
+    <text x="313" y="99" text-anchor="middle" font-size="10" fill="#333">SET dedupe:{event_id} NX</text>
+    <line x1="374" y1="120" x2="273" y2="120" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a4r)"/>
+    <text x="313" y="134" text-anchor="middle" font-size="9" fill="#0d47a1">new → process / duplicate → skip</text>
+
+    <!-- 4. update Redis counters -->
+    <line x1="265" y1="148" x2="366" y2="148" stroke="#555" stroke-width="1.5" marker-end="url(#a4)"/>
+    <text x="313" y="141" text-anchor="middle" font-size="10" fill="#333">INCR counters (total, daily)</text>
+
+    <!-- 5. insert_event → TimescaleDB -->
+    <line x1="265" y1="168" x2="479" y2="168" stroke="#1b5e20" stroke-width="2" marker-end="url(#a4g)"/>
+    <text x="372" y="161" text-anchor="middle" font-size="10" fill="#1b5e20" font-weight="700">insert_event() → appointment_events</text>
+    <line x1="487" y1="182" x2="273" y2="182" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a4r)"/>
+    <text x="372" y="196" text-anchor="middle" font-size="9" fill="#1b5e20">row saved (id, time, event_type, clinic_id, provider_id, patient_id)</text>
+
+    <!-- Divider -->
+    <line x1="20" y1="215" x2="740" y2="215" stroke="#f0f0f0" stroke-width="1" stroke-dasharray="3,3"/>
+
+    <!-- Section label: filtered query -->
+    <rect x="0" y="220" width="760" height="14" rx="3" fill="#e3f2fd" opacity="0.6"/>
+    <text x="380" y="231" text-anchor="middle" font-size="9" fill="#0d47a1" font-weight="600">— FILTERED ANALYTICS QUERY —</text>
+
+    <!-- 6. GET /analytics/filter -->
+    <line x1="604" y1="248" x2="273" y2="248" stroke="#1565c0" stroke-width="1.5" marker-end="url(#a4b)"/>
+    <text x="435" y="241" text-anchor="middle" font-size="10" fill="#1565c0" font-weight="600">GET /analytics/filter?from_date=&amp;to_date=&amp;clinic_id=</text>
+
+    <!-- 7. time_bucket query TimescaleDB -->
+    <line x1="265" y1="268" x2="479" y2="268" stroke="#555" stroke-width="1.5" marker-end="url(#a4)"/>
+    <text x="372" y="261" text-anchor="middle" font-size="10" fill="#333">SELECT time_bucket('1 day', time), event_type, COUNT(*)</text>
+
+    <!-- internal box -->
+    <rect x="430" y="278" width="115" height="28" rx="3" fill="#e8f5e9" stroke="#66bb6a" stroke-width="1"/>
+    <text x="487" y="290" text-anchor="middle" font-size="9" fill="#1b5e20" font-weight="600">hypertable partition scan</text>
+    <text x="487" y="302" text-anchor="middle" font-size="9" fill="#1b5e20">(time-based chunks)</text>
+
+    <!-- 8. return rows -->
+    <line x1="487" y1="316" x2="273" y2="316" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a4r)"/>
+    <text x="372" y="309" text-anchor="middle" font-size="9" fill="#333">rows: [{day, event_type, total}, ...]</text>
+
+    <!-- 9. JSON response to client -->
+    <line x1="265" y1="336" x2="596" y2="336" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a4r)"/>
+    <text x="430" y="329" text-anchor="middle" font-size="9" fill="#1565c0" font-style="italic">200 [{day: "2026-07-05", event_type: "appointment.created", total: 12}, ...]</text>
+
+    <!-- Done -->
+    <rect x="196" y="362" width="180" height="22" rx="4" fill="#e8f5e9" stroke="#66bb6a" stroke-width="1.5"/>
+    <text x="286" y="378" text-anchor="middle" font-size="10" fill="#2e7d32" font-weight="600">✓ Filtered daily aggregates returned</text>
+  </svg>
+
+  <div class="legend">
+    <span><span class="leg-line" style="background:#555;"></span>request / query</span>
+    <span><span class="leg-dash" style="border-color:#aaa;"></span>response</span>
+    <span><span class="leg-line" style="background:#1b5e20;"></span>persists to TimescaleDB</span>
+    <span><span class="leg-line" style="background:#1565c0;"></span>client query</span>
+  </div>
+</div>
+
 </body>
 </html>

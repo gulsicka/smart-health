@@ -4,6 +4,7 @@ import redis.asyncio as aioredis
 import json
 from .config import settings
 from .celery_client import notify_booking_confirmation, notify_appointment_cancellation
+from app.crud.appointments import insert_event
 
 consumer: AIOKafkaConsumer | None = None
 redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -21,6 +22,7 @@ async def handle_event(event: dict):
     elif event_type == "appointment.created":
         await redis_client.incr("analytics:total_appointments")
         await redis_client.hincrby("analytics:daily_bookings", date, 1)
+        insert_event(event, event_type) #time scale db record insertion
         notify_booking_confirmation(patient_id, appointment_id)
 
     elif event_type == "appointment.status_updated":
@@ -31,6 +33,7 @@ async def handle_event(event: dict):
                 datetime.now().isoformat(),
                 ex=86400,  # expire after 24h in case in_progress never fires
             )
+            insert_event(event, "appointment.checked_in")
 
         elif status == "in_progress":
             checkin_raw = await redis_client.get(f"analytics:checkin_time:{appointment_id}")
@@ -40,18 +43,22 @@ async def handle_event(event: dict):
                 await redis_client.incrbyfloat("analytics:total_wait_minutes", wait_minutes)
                 await redis_client.incr("analytics:wait_time_count")
                 await redis_client.delete(f"analytics:checkin_time:{appointment_id}")
-
+                insert_event(event, "appointment.in_progress")
+                
         elif status == "completed":
             await redis_client.incr("analytics:total_completed")
             await redis_client.hincrby("analytics:daily_completions", date, 1)
-
+            insert_event(event, "appointment.completed")
+            
         elif status == "confirmed":
             notify_booking_confirmation(patient_id, appointment_id)
+            insert_event(event, "appointment.confirmed")
 
         elif status == "cancelled":
             await redis_client.incr("analytics:total_cancelled")
             await redis_client.hincrby("analytics:daily_cancellations", date, 1)
             notify_appointment_cancellation(patient_id, appointment_id)
+            insert_event(event, "appointment.cancelled") #time scale db record insertion
 
 
 async def start_consumer():
@@ -76,8 +83,10 @@ async def consume_events():
         is_new = await redis_client.set(f"dedupe:{event_id}", 1, nx=True, ex=86400)
         if not is_new:
             continue  # already processed, skip
-        
-        await handle_event(event)
+        try:
+            await handle_event(event)
+        except Exception as e:
+            print(f"Error handling event: {e}")
         
         # Process the event here
         print(f"Consumed event: {event}")

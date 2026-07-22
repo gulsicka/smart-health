@@ -236,12 +236,15 @@ services:
       PATIENT_KAFKA_TOPIC: patients.events
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      DATABASE_URL: postgresql://postgres:password@analytics-db:5432/analytics_db
     depends_on:
       kafka:
         condition: service_healthy
       redis:
         condition: service_started
       rabbitmq:
+        condition: service_healthy
+      analytics-db:
         condition: service_healthy
 
   rabbitmq:
@@ -323,6 +326,22 @@ services:
       - "16686:16686"  #ui
       - "4317:4317"    # services send traces heree
 
+  analytics-db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: analytics_db
+    ports: ["5439:5432"]
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analytics_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
@@ -332,3 +351,4 @@ volumes:
   redis_data:
   kafka_data:
   notification_postgres_data:
+  analytics_postgres_data:

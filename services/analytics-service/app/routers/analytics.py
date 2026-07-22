@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Depends
+from sqlalchemy import text
 from app.consumer import redis_client
-
+from app.database import SessionLocal
+from typing import Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from app.database import get_db
+from app.models import AppointmentEvent
 
 router = APIRouter()
 
@@ -30,3 +36,47 @@ async def get_analytics():
         "daily_cancellations": daily_cancellations,
         "cancellation_rate": round(total_cancelled / total_appointments, 2) if total_appointments else 0,
     }
+
+
+@router.get("/analytics/filter")
+def get_filtered_analytics(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    clinic_id: Optional[int] = Query(None),
+    provider_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    query = db.query(
+        func.time_bucket('1 day', AppointmentEvent.time).label('day'),
+        AppointmentEvent.event_type,
+        func.count().label('total')
+    ).filter(
+        AppointmentEvent.time.between(from_date, to_date)
+    )
+
+    if clinic_id is not None:
+        query = query.filter(AppointmentEvent.clinic_id == clinic_id)
+
+    if provider_id is not None:
+        query = query.filter(AppointmentEvent.provider_id == provider_id)
+
+    results = query.group_by('day', AppointmentEvent.event_type).order_by('day').all()
+
+    return [
+        {"day": str(row.day.date()), "event_type": row.event_type, "total": row.total}
+        for row in results
+    ]
+    
+@router.get("/analytics/total-created")
+def get_total_appointments_created(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    event_type: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    total = db.query(func.count()).filter(
+        AppointmentEvent.time.between(from_date, to_date),
+        AppointmentEvent.event_type == event_type
+    ).scalar()
+
+    return {"total": total, "event_type": event_type, "from": from_date, "to": to_date}
