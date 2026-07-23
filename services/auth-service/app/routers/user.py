@@ -138,10 +138,10 @@ def login(
     if user.status == UserStatus.PENDING:
         raise HTTPException(status_code=403, detail="Account setup is still in progress")
 
-    access_token = auth.create_access_token(data={
-        "user_id": user.id,
-        "roles": [r.role_name for r in user.roles],
-    })
+    access_token = auth.create_access_token(data=schemas.TokenPayload(
+        user_id=user.id,
+        roles=[r.role_name for r in user.roles],
+    ))
     print(f"User {user.id} logged in")
     return {"message": "Login successful", "access_token": access_token, "token_type": "bearer"}
 

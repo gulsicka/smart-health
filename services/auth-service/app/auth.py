@@ -13,10 +13,10 @@ from .redis import get_redis
 bearer_scheme = HTTPBearer()
 
 
-def create_access_token(data: dict):
-    to_encode = data.copy()
+def create_access_token(data: schemas.TokenPayload):
+    to_encode = data.model_dump()
     expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire,  "jti": str(uuid.uuid4())})
+    to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

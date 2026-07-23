@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
-# Many-to-many junction: clinics ↔ departments
+# many-to-many junction, clinics & departments
 clinic_departments = Table(
     "clinic_departments",
     Base.metadata,

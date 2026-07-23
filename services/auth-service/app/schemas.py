@@ -4,6 +4,10 @@ from typing import Optional, TypedDict
 from app.enums import RoleName
 
 
+class TokenPayload(BaseModel):
+    user_id: int
+    roles: list[RoleName]
+
 class TokenData(BaseModel):
     user_id: int
     roles: list[RoleName]
