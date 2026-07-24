@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from temporalio.exceptions import WorkflowFailureError
 from sqlalchemy.orm import Session
 from datetime import date as date_type
 import uuid
@@ -54,7 +55,16 @@ async def create_appointment(
         },
         workflow_id=workflow_id,
     )
-    return {"message": "Appointment request received", "workflow_id": handle.id}
+
+    try:
+        await handle.result()
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e.cause) if e.cause else "Appointment booking failed",
+        )
+
+    return {"message": "Appointment booked successfully", "workflow_id": handle.id}
 
 
 @router.post("/appointments/internal", response_model=schemas.Appointment)

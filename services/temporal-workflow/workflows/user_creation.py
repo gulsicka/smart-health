@@ -1,4 +1,5 @@
 from datetime import timedelta
+from functools import partial
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
@@ -14,6 +15,7 @@ with workflow.unsafe.imports_passed_through():
         notify_user_creation_failed_activity,
     )
     from schemas import UserInput, UserIdInput, NotifyUserInput
+    from saga import Saga
 
 
 @workflow.defn
@@ -21,8 +23,7 @@ class UserCreationWorkflow:
     @workflow.run
     async def run(self, user_data: UserInput):
         print(f"Starting UserCreationWorkflow for user: {user_data.id}")
-        patient_created = False
-        provider_created = False
+        saga = Saga()
 
         try:
             if "patient" in user_data.roles:
@@ -32,7 +33,13 @@ class UserCreationWorkflow:
                     start_to_close_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
-                patient_created = True
+                saga.add_compensation(partial(
+                    workflow.execute_activity,
+                    delete_patient_record,
+                    UserIdInput(user_id=user_data.id),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=10),
+                ))
 
             if "provider" in user_data.roles:
                 await workflow.execute_activity(
@@ -41,7 +48,13 @@ class UserCreationWorkflow:
                     start_to_close_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
-                provider_created = True
+                saga.add_compensation(partial(
+                    workflow.execute_activity,
+                    delete_provider_record,
+                    UserIdInput(user_id=user_data.id),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=10),
+                ))
 
             await workflow.execute_activity(
                 activate_user,
@@ -50,7 +63,7 @@ class UserCreationWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=3),
             )
 
-            # notification failure does not warrant rollback — user is active in DB
+            # notification failure does not warrant rollback — user is already active in DB
             try:
                 await workflow.execute_activity(
                     notify_user_created_activity,
@@ -64,21 +77,7 @@ class UserCreationWorkflow:
             print("UserCreationWorkflow completed")
 
         except Exception:
-            # rollback order: provider → patient → user
-            if provider_created:
-                await workflow.execute_activity(
-                    delete_provider_record,
-                    UserIdInput(user_id=user_data.id),
-                    start_to_close_timeout=timedelta(seconds=10),
-                    retry_policy=RetryPolicy(maximum_attempts=10),
-                )
-            if patient_created:
-                await workflow.execute_activity(
-                    delete_patient_record,
-                    UserIdInput(user_id=user_data.id),
-                    start_to_close_timeout=timedelta(seconds=10),
-                    retry_policy=RetryPolicy(maximum_attempts=10),
-                )
+            await saga.compensate()
             await workflow.execute_activity(
                 fail_user,
                 UserIdInput(user_id=user_data.id),

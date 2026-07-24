@@ -48,7 +48,18 @@ async def create_user(
         workflow_id=workflow_id,
     )
     print(f"Workflow started! ID: {handle.id}")
+
+    try:
+        await handle.result()
+    except Exception as e:
+        cause = getattr(e, "cause", None)
+        raise HTTPException(
+            status_code=400,
+            detail=f"User setup failed: {str(cause) if cause else str(e)}",
+        )
+
     print(f"User {current_user.user_id} created user {db_user.email}")
+    db.refresh(db_user)  # force re-read — status is now "active"
     return db_user
 
 
