@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from temporalio.exceptions import WorkflowFailureError
 from sqlalchemy.orm import Session
 from datetime import date as date_type
 import uuid

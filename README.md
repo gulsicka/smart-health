@@ -70,6 +70,23 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
   +-----------------------------------------------------------------------+
 
 
+  Billing (Kafka-driven, fully event-sourced)
+  +-----------------------------------------------------------------------+
+  |                                                                       |
+  |  appointments.events --> billing-svc :8006 --> billing-db             |
+  |                                               (Postgres :5440)        |
+  |                                                                       |
+  |    appointment.created        --> Invoice created (status: pending)   |
+  |    appointment.status_updated:                                        |
+  |      completed                --> Invoice status: paid                |
+  |      cancelled / no_show      --> Invoice status: refunded            |
+  |                                                                       |
+  |  billing-svc --> Redis (SET NX billing:event:{id}) for idempotency   |
+  |  billing-svc exposes read-only invoice endpoints (see API Overview)   |
+  |                                                                       |
+  +-----------------------------------------------------------------------+
+
+
   Observability
   +------------------------------------------------------------------+
   |                                                                  |
@@ -94,6 +111,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | provider-service | 8003 | Providers, clinics, departments, availability |
 | appointment-service | 8004 | Booking, status updates, Kafka event publishing |
 | analytics-service | 8005 | Kafka consumer, Redis counters, TimescaleDB event store, analytics API |
+| billing-service | 8006 | Kafka consumer, fixed-fee invoice lifecycle (pending → paid / refunded), per-appointment billing |
 | notification-service | — | Celery worker, persists notifications to Postgres |
 | temporal-workflow | — | Temporal worker for user creation + appointment validation workflows |
 
@@ -217,6 +235,17 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 | GET | `/analytics/filter` | Filter events by date range, clinic, provider — grouped by day and event type (TimescaleDB) |
 | GET | `/analytics/total-created` | Count of a specific event type between two dates (TimescaleDB) |
 
+### Billing Service — `localhost:8006`
+
+All billing endpoints require a Bearer token. The `invoices/patient/{patient_id}` endpoint is also accessible by the patient themselves.
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/invoices` | Admin, FD Staff | List all invoices |
+| GET | `/invoices/{invoice_id}` | Admin, FD Staff | Get a single invoice by ID |
+| GET | `/invoices/appointment/{appointment_id}` | Admin, FD Staff, Provider | Get the invoice for a specific appointment |
+| GET | `/invoices/patient/{patient_id}` | Admin, FD Staff, Patient | List all invoices for a patient |
+
 ---
 
 ## Key Design Decisions
@@ -236,6 +265,8 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 **Per-service databases** — Each service owns its Postgres database. No cross-service foreign keys; references are by ID only.
 
 **CRUD package pattern** — Each service uses a `crud/` package with one file per model, re-exported via `__init__.py`. Router imports don't change when logic is split.
+
+**Event-driven billing** — billing-service has no HTTP calls from appointment-service; it is a pure Kafka consumer on `appointments.events` (the same topic analytics-service uses). On `appointment.created` it creates a pending invoice for a fixed $100 consultation fee. On `appointment.status_updated`, it marks the invoice paid (completed) or refunded (cancelled / no_show). Kafka event deduplication uses Redis `SET NX` on `billing:event:{event_id}` with a 24h TTL, with a DB-level unique constraint on `appointment_id` as a second safety net. The service exposes read-only REST endpoints for querying invoices by ID, appointment, or patient.
 
 ---
 
@@ -258,3 +289,40 @@ Each service exposes interactive API docs at `/docs`:
 - Provider: `http://localhost:8003/docs`
 - Appointment: `http://localhost:8004/docs`
 - Analytics: `http://localhost:8005/docs`
+- Billing: `http://localhost:8006/docs`
+
+---
+
+## Database Schema
+
+Each service owns its own isolated Postgres database. Cross-service references use plain integer IDs — no cross-database foreign keys.
+
+### billing-db — `invoices`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | integer | PK, auto-increment | Invoice primary key |
+| `appointment_id` | integer | NOT NULL, UNIQUE, indexed | References the appointment in appointment-db (no FK) |
+| `patient_id` | integer | NOT NULL, indexed | References the user/patient in auth-db / patient-db (no FK) |
+| `provider_id` | integer | NOT NULL | References the provider in provider-db (no FK) |
+| `clinic_id` | integer | NOT NULL | References the clinic in provider-db (no FK) |
+| `amount` | numeric(10,2) | NOT NULL | Fixed consultation fee (default $100.00) |
+| `status` | varchar | NOT NULL, default `pending` | Invoice status: `pending` \| `paid` \| `refunded` |
+| `appointment_date` | varchar | nullable | Date of the appointment (denormalised from the Kafka event) |
+| `created_at` | timestamp | NOT NULL, default now() | Record creation time |
+| `updated_at` | timestamp | NOT NULL, default now() | Last update time (auto-updated on write) |
+
+**Status transitions driven by Kafka `appointments.events`:**
+
+```
+appointment.created              → status: pending
+appointment.status_updated:
+  status = completed             → status: paid
+  status = cancelled / no_show  → status: refunded
+```
+
+**Relations to other services (by ID, no FK):**
+- `appointment_id` → `appointments.id` in appointment-db (unique — one invoice per appointment)
+- `patient_id` → `users.id` / `patients.user_id` in auth-db / patient-db
+- `provider_id` → `providers.user_id` in provider-db
+- `clinic_id` → `clinics.id` in provider-db

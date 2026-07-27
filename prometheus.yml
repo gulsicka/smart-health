@@ -21,3 +21,7 @@ scrape_configs:
   - job_name: analytics-service
     static_configs:
       - targets: ["analytics-service:8000"]
+
+  - job_name: billing-service
+    static_configs:
+      - targets: ["billing-service:8000"]

@@ -10,14 +10,16 @@ class TokenData(BaseModel):
     roles: list[RoleName]
 
 
-class AppointmentCreate(BaseModel):
+class AppointmentBase(BaseModel):
     patient_id: int
     provider_id: int
     clinic_id: int
     date: date
     start_time: time
     end_time: time
-    
+
+
+class AppointmentCreate(AppointmentBase):
     @validator('start_time')
     def must_be_future(cls, v, values):
         appointment_dt = datetime.combine(values['date'], v)
@@ -30,7 +32,7 @@ class AppointmentUpdate(BaseModel):
     status: Optional[AppointmentStatus] = None
 
 
-class Appointment(AppointmentCreate):
+class Appointment(AppointmentBase):
     id: int
     status: AppointmentStatus
     created_at: datetime

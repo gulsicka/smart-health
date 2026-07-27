@@ -308,6 +308,8 @@ services:
         condition: service_started
       analytics-service:
         condition: service_started
+      billing-service:
+        condition: service_started
 
   grafana:
     image: grafana/grafana:latest
@@ -342,6 +344,38 @@ services:
 
 
 
+  billing-service:
+    build: ./services/billing-service
+    ports: ["8006:8000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:password@billing-db:5432/billing_db
+      SECRET_KEY: ${SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: appointments.events
+      REDIS_URL: redis://redis:6379
+      CONSULTATION_FEE: "100.00"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  billing-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: billing_db
+    ports: ["5440:5432"]
+    volumes:
+      - billing_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d billing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
@@ -352,3 +386,4 @@ volumes:
   kafka_data:
   notification_postgres_data:
   analytics_postgres_data:
+  billing_postgres_data:
