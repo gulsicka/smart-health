@@ -32,15 +32,12 @@ async def delete_provider_by_user_id(user_id: int):
     await make_request("delete", f"{PROVIDER_URL}/providers/by-user-id/{user_id}")
 
 
-async def create_availability(provider_id: int, clinic_id: int, date: str, start_time: str, end_time: str):
+async def upsert_availability(provider_id: int, clinic_id: int, schedule: list[dict]):
     await make_request(
         "post",
         f"{PROVIDER_URL}/providers/{provider_id}/availability",
         json={
-            "provider_id": provider_id,
             "clinic_id": clinic_id,
-            "date": date,
-            "start_time": start_time,
-            "end_time": end_time,
+            "schedule": schedule,
         },
     )

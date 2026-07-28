@@ -1,9 +1,7 @@
 from pydantic import BaseModel, validator
 from app.enums import RoleName
-from datetime import datetime, time, date
+from datetime import datetime
 from typing import Optional
-
-VALID_DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
 class TokenData(BaseModel):
     user_id: int
@@ -57,18 +55,25 @@ class Provider(ProviderBase):
         from_attributes = True
 
 
-class ProviderAvailabilityBase(BaseModel):
+class ScheduleDay(BaseModel):
+    date: str       
+    start_time: str 
+    end_time: str  
+    status: str = "available" 
+
+
+class ProviderAvailabilityCreate(BaseModel):
+    clinic_id: int
+    schedule: list[ScheduleDay]
+
+
+class ProviderAvailability(BaseModel):
+    id: int
     provider_id: int
     clinic_id: int
-    date: date   # "Monday", "Tuesday", etc.
-    start_time: time
-    end_time: time
+    schedule: list[ScheduleDay]
+    updated_at: datetime
 
-class ProviderAvailabilityCreate(ProviderAvailabilityBase):
-    pass
-
-class ProviderAvailability(ProviderAvailabilityBase):
-    id: int
     class Config:
         from_attributes = True
 
@@ -76,5 +81,10 @@ class ProviderAvailability(ProviderAvailabilityBase):
 class ProviderAvailabilitySetup(BaseModel):
     clinic_id: int
     working_days: list[str]
-    start_time: str  # "HH:MM:SS"
-    end_time: str    
+    start_time: str
+    end_time: str
+
+
+class ScheduleDateStatusUpdate(BaseModel):
+    date: str
+    status: str

@@ -19,13 +19,19 @@ async def validate_appointment_entities(data: AppointmentInput):
 async def check_provider_availability(data: AppointmentInput):
     response = await provider_client.get_provider_availability(data.provider_id)
     availability_list = response.json()
+    appt_start = data.start_time[:5]
+    appt_end = data.end_time[:5]
     for avail in availability_list:
-        if (
-            avail["date"] == data.date
-            and avail["start_time"] <= data.start_time
-            and avail["end_time"] >= data.end_time
-        ):
-            return True
+        if avail.get("clinic_id") != data.clinic_id:
+            continue
+        for slot in avail.get("schedule", []):
+            if (
+                slot.get("date") == data.date
+                and slot.get("status") == "available"
+                and slot.get("start_time") <= appt_start
+                and slot.get("end_time") >= appt_end
+            ):
+                return True
     raise Exception("Provider is not available at the requested time.")
 
 

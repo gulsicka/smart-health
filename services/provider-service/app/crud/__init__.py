@@ -23,9 +23,10 @@ from .provider import (
 )
 from .availability import (
     get_availability_by_provider,
-    get_availability_by_id,
+    get_availability_by_clinic,
     get_availability_conflict,
-    create_availability,
-    delete_availability,
+    upsert_availability,
     setup_availability_schedule,
+    update_schedule_date_status,
+    delete_availability,
 )

@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, Integer, String, Date, ForeignKey, Time, UniqueConstraint, Table
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, UniqueConstraint, Table, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -42,13 +43,12 @@ class ProviderAvailability(Base):
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
-    date = Column(Date, nullable=False)   
-    start_time = Column(Time, nullable=False)       # e.g. 12:00
-    end_time = Column(Time, nullable=False)         # e.g. 18:00
+    # [{"date": "2026-07-28", "start_time": "09:00", "end_time": "17:00", "status": "available"}, ...]
+    schedule = Column(JSONB, nullable=False, default=list)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # A provider can only have one window per clinic per day
     __table_args__ = (
-        UniqueConstraint("provider_id", "clinic_id", "date", name="uq_provider_clinic_day"),
+        UniqueConstraint("provider_id", "clinic_id", name="uq_provider_clinic"),
     )
 
     provider = relationship("Provider", back_populates="availability")
