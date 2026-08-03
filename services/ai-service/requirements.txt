@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic-settings
+python-jose[cryptography]
+python-multipart
+sentence-transformers
+sqlalchemy
+psycopg2-binary
+pgvector
+langchain
+langchain-community
+langchain-text-splitters
+pymupdf
+prometheus-fastapi-instrumentator
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-instrumentation-fastapi

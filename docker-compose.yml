@@ -376,6 +376,30 @@ services:
       timeout: 5s
       retries: 10
 
+  ai-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ai_db
+    ports: ["5441:5432"]
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ai-service:
+    build: ./services/ai-service
+    ports: ["8007:8000"]
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:password@ai-db:5432/ai_db
+    depends_on:
+      ai-db:
+        condition: service_healthy
+
 volumes:
   auth_postgres_data:
   patient_postgres_data:
@@ -387,3 +411,4 @@ volumes:
   notification_postgres_data:
   analytics_postgres_data:
   billing_postgres_data:
+  ai_postgres_data:
