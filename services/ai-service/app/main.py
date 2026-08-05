@@ -34,7 +34,7 @@ Instrumentator().instrument(app).expose(app)
 app.include_router(ingest.router)
 app.include_router(retrieve.router)
 app.include_router(chat.router)
-app.include.router(communication.router)
+app.include_router(communication.router)
 
 
 @app.get("/health")

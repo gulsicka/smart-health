@@ -44,3 +44,10 @@ def notify_booking_failed(patient_id: int, provider_id: int, clinic_id: int, sta
         "tasks.send_booking_failed",
         args=[patient_id, provider_id, clinic_id, start_time, end_time],
     )
+
+
+def notify_appointment_reminder(patient_id: int, appointment_id: int, message: str):
+    celery_app.send_task(
+        "tasks.send_appointment_reminder_with_message",
+        args=[patient_id, appointment_id, message],
+    )

@@ -44,3 +44,14 @@ class ProviderScheduleInput:
 @dataclass
 class FailedWorkflowInput:
     error: str
+
+
+@dataclass
+class AppointmentReminderInput:
+    appointment_id: int
+    patient_id: int
+    provider_id: int
+    clinic_id: int
+    date: str
+    start_time: str
+    end_time: str

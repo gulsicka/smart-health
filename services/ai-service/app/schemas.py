@@ -39,5 +39,26 @@ class ChatRequest(BaseModel):
     query: str
     top_k: int = 5
     
-class Communication(BaseModel):
+class GenerateCommunicationRequest(BaseModel):
     type: CommunicationType
+    top_k: int = 5
+    patient_id: int | None = None
+    provider_id: int | None = None
+    clinic_id: int | None = None
+    
+class GenerateCommunicationResponse(BaseModel):
+    content: str
+
+
+class GenerateReminderRequest(BaseModel):
+    appointment_id: int
+    patient_id: int
+    provider_id: int
+    clinic_id: int
+    date: str
+    start_time: str
+    reminder_type: str
+
+
+class GenerateReminderResponse(BaseModel):
+    content: str

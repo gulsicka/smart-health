@@ -100,6 +100,21 @@ def send_booking_confirmation(user_id: int, appointment_id: int):
         db.close()
         
 @app.task
+def send_appointment_reminder_with_message(user_id: int, appointment_id: int, message: str):
+    db = SessionLocal()
+    try:
+        notification = Notification(
+            user_id=user_id,
+            message=message,
+            type="appointment_reminder",
+        )
+        db.add(notification)
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.task
 def send_appointment_reminder(user_id: int, appointment_id: int):
     print(f"[MOCK] Sending appointment reminder to user {user_id} for appointment {appointment_id}")
     db = SessionLocal()

@@ -7,6 +7,7 @@ from app.enums import RoleName
 from app.config import settings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
+from app.utils.helpers import build_context
 
 router = APIRouter()
 
@@ -22,10 +23,6 @@ If the context does not contain enough information, say so honestly.
 
 Context:
 {context}"""
-
-
-def build_context(chunks: list) -> str:
-    return "\n\n".join(f"[{r.source}] {r.content}" for r in chunks)
 
 
 async def stream_response(query: str, context: str):

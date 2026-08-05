@@ -18,5 +18,8 @@ class Settings(BaseSettings):
     APPOINTMENT_SERVICE_URL: str
     PATIENT_SERVICE_URL: str
     GROQ_API_KEY: str
+    TEMPORAL_HOST: str
+    TEMPORAL_NAMESPACE: str = "default"
+    REMINDER_TASK_QUEUE: str = "appointment_reminder_queue"
 
 settings = Settings()

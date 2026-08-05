@@ -19,3 +19,4 @@ httpx
 langchain-core
 langchain-groq
 groq
+temporalio

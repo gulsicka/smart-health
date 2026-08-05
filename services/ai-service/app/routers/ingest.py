@@ -70,8 +70,9 @@ async def sync(
         counts["patients"] += 1
 
     for appt in await appointment.get_all_appointments():
-        crud.delete_chunks(db, f"appointment-{appt['id']}")
-        crud.ingest_chunks(db, f"appointment-{appt['id']}", [appointment_created_text(appt)])
+        source = f"patient-{appt['patient_id']}-provider-{appt['provider_id']}-clinic-{appt['clinic_id']}-appointment-{appt['id']}"
+        crud.delete_chunks(db, source)
+        crud.ingest_chunks(db, source, [appointment_created_text(appt)])
         counts["appointments"] += 1
 
     for clinic in await provider.get_all_clinics():

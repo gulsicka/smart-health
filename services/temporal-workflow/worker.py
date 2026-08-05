@@ -19,6 +19,7 @@ HTTPXClientInstrumentor().instrument()
 from workflows.user_creation import UserCreationWorkflow
 from workflows.appointment import AppointmentValidationWorkflow
 from workflows.update_user_role import UpdateUserWorkflow
+from workflows.reminder import AppointmentReminderWorkflow
 
 from activities.user import (
     create_patient_record,
@@ -40,6 +41,7 @@ from activities.appointment import (
     notify_booking_failed,
 )
 from activities.common import failed_workflow
+from activities.reminder import send_day_before_reminder, send_hour_before_reminder
 
 TEMPORAL_HOST = settings.TEMPORAL_HOST
 USER_TASK_QUEUE = settings.USER_TASK_QUEUE
@@ -95,10 +97,19 @@ async def main():
         interceptors=[TracingInterceptor()],
     )
 
+    reminder_worker = Worker(
+        client,
+        task_queue=settings.REMINDER_TASK_QUEUE,
+        workflows=[AppointmentReminderWorkflow],
+        activities=[send_day_before_reminder, send_hour_before_reminder],
+        interceptors=[TracingInterceptor()],
+    )
+
     await asyncio.gather(
         user_creation_worker.run(),
         appointment_validation_worker.run(),
         update_user_role_worker.run(),
+        reminder_worker.run(),
     )
 
 

@@ -22,13 +22,10 @@ def ingest_chunks(db: Session, source: str, chunks: list[str], file_hash: str = 
     db.commit()
 
 
-def retrieve_chunks(db: Session, query: str, top_k: int):
+def retrieve_chunks(db, query, top_k, source_prefix: str = None):
     query_vector = embedder.embed(query)
     distance = models.DocumentChunk.embedding.l2_distance(query_vector).label("score")
-
-    return (
-        db.query(models.DocumentChunk, distance)
-        .order_by(distance)
-        .limit(top_k)
-        .all()
-    )
+    q = db.query(models.DocumentChunk, distance)
+    if source_prefix:
+        q = q.filter(models.DocumentChunk.source.startswith(source_prefix))
+    return q.order_by(distance).limit(top_k).all()
