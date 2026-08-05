@@ -6,8 +6,16 @@ from app.enums import RoleName
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import fitz   # pymupdf
 import hashlib
-from app.clients import provider, patients, appointment
-from app.utils.event_text import event_to_text, provider_full_text, patient_full_text, appointment_created_text, clinic_full_text, department_full_text
+from app.clients import provider as provider_client, patients as patients_client
+from app.clients import auth as auth_client
+from app.clients import appointment as appointment_client
+from app.utils.event_text import (
+    patient_full_text,
+    provider_full_text,
+    appointment_full_text,
+    clinic_full_text,
+    department_full_text,
+)
 
 router = APIRouter()
 
@@ -52,6 +60,7 @@ def ingest_pdf(
     crud.ingest_chunks(db, source, chunks, file_hash=file_hash)
     return schemas.IngestResponse(source=source, chunks_stored=len(chunks))
 
+
 @router.post("/ingest/sync", response_model=schemas.SyncResponse)
 async def sync(
     db: Session = Depends(get_db),
@@ -59,28 +68,60 @@ async def sync(
 ):
     counts = {"providers": 0, "patients": 0, "appointments": 0, "clinics": 0, "departments": 0}
 
-    for provider_instance in await provider.get_all_providers():
-        crud.delete_chunks(db, f"provider-{provider_instance['id']}")
-        crud.ingest_chunks(db, f"provider-{provider_instance['id']}", [provider_full_text(provider_instance)])
+    # build lookup maps upfront — one call per service, no N+1
+    all_users = await auth_client.get_all_users()
+    user_map = {u["id"]: u for u in all_users}
+
+    all_depts = await provider_client.get_all_departments()
+    dept_map = {d["id"]: d for d in all_depts}
+
+    all_clinics = await provider_client.get_all_clinics()
+    clinic_map = {c["id"]: c for c in all_clinics}
+
+    all_patients = await patients_client.get_all_patients()
+    patient_map = {p["id"]: p for p in all_patients}
+
+    all_providers = await provider_client.get_all_providers()
+    provider_map = {p["id"]: p for p in all_providers}
+
+    for prov in all_providers:
+        user = user_map.get(prov["user_id"], {})
+        dept = dept_map.get(prov["department_id"], {"name": "Unknown", "id": prov["department_id"]})
+        crud.delete_chunks(db, f"provider-{prov['id']}")
+        crud.ingest_chunks(db, f"provider-{prov['id']}", [provider_full_text(prov, user, dept)])
         counts["providers"] += 1
 
-    for patient in await patients.get_all_patients():
+    for patient in all_patients:
+        user = user_map.get(patient["user_id"], {})
         crud.delete_chunks(db, f"patient-{patient['id']}")
-        crud.ingest_chunks(db, f"patient-{patient['id']}", [patient_full_text(patient)])
+        crud.ingest_chunks(db, f"patient-{patient['id']}", [patient_full_text(patient, user)])
         counts["patients"] += 1
 
-    for appt in await appointment.get_all_appointments():
+    for appt in await appointment_client.get_all_appointments():
+        patient = patient_map.get(appt["patient_id"], {})
+        patient_user = user_map.get(patient.get("user_id"), {})
+        prov = provider_map.get(appt["provider_id"], {})
+        provider_user = user_map.get(prov.get("user_id"), {})
+        dept = dept_map.get(prov.get("department_id"), {"name": "Unknown"})
+        clinic = clinic_map.get(appt["clinic_id"], {"name": "Unknown", "address": "Unknown"})
         source = f"patient-{appt['patient_id']}-provider-{appt['provider_id']}-clinic-{appt['clinic_id']}-appointment-{appt['id']}"
+        text = appointment_full_text(
+            appt,
+            patient_user.get("name", "Unknown"),
+            provider_user.get("name", "Unknown"),
+            dept.get("name", "Unknown"),
+            clinic,
+        )
         crud.delete_chunks(db, source)
-        crud.ingest_chunks(db, source, [appointment_created_text(appt)])
+        crud.ingest_chunks(db, source, [text])
         counts["appointments"] += 1
 
-    for clinic in await provider.get_all_clinics():
+    for clinic in all_clinics:
         crud.delete_chunks(db, f"clinic-{clinic['id']}")
         crud.ingest_chunks(db, f"clinic-{clinic['id']}", [clinic_full_text(clinic)])
         counts["clinics"] += 1
 
-    for dept in await provider.get_all_departments():
+    for dept in all_depts:
         crud.delete_chunks(db, f"department-{dept['id']}")
         crud.ingest_chunks(db, f"department-{dept['id']}", [department_full_text(dept)])
         counts["departments"] += 1

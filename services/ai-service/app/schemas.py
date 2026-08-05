@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from app.enums import RoleName, CommunicationType
+from app.enums import RoleName, CommunicationType, ReportType
 
 
 class TokenData(BaseModel):

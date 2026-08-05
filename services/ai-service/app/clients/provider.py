@@ -22,3 +22,13 @@ async def get_all_clinics() -> list:
 async def get_all_departments() -> list:
     response = await make_request("get", f"{PROVIDER_SERVICE_URL}/departments")
     return response.json()
+
+
+async def get_clinic(clinic_id: int) -> dict:
+    response = await make_request("get", f"{PROVIDER_SERVICE_URL}/clinics/{clinic_id}")
+    return response.json()
+
+
+async def get_department(department_id: int) -> dict:
+    response = await make_request("get", f"{PROVIDER_SERVICE_URL}/departments/{department_id}")
+    return response.json()

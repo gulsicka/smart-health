@@ -4,8 +4,16 @@ import json
 from app.config import settings
 from app.database import SessionLocal
 from app import crud
-from app.utils.event_text import event_to_text, provider_full_text, patient_full_text
-from app.clients import provider, patients
+from app.utils.event_text import (
+    patient_full_text,
+    patient_deleted_text,
+    provider_full_text,
+    provider_deleted_text,
+    appointment_full_text,
+    appointment_status_updated_text,
+)
+from app.clients import provider as provider_client, patients as patients_client
+from app.clients import auth as auth_client
 
 consumer: AIOKafkaConsumer | None = None
 _temporal_client: Client | None = None
@@ -37,6 +45,22 @@ def get_source(event: dict) -> str | None:
     return None
 
 
+async def fetch_appointment_context(event: dict) -> tuple:
+    """Returns (patient_name, provider_name, dept_name, clinic_data) for an appointment event."""
+    patient_data = await patients_client.get_patient(event["patient_id"])
+    patient_user = await auth_client.get_user(patient_data["user_id"])
+    provider_data = await provider_client.get_provider(event["provider_id"])
+    provider_user = await auth_client.get_user(provider_data["user_id"])
+    dept_data = await provider_client.get_department(provider_data["department_id"])
+    clinic_data = await provider_client.get_clinic(event["clinic_id"])
+    return (
+        patient_user.get("name", "Unknown"),
+        provider_user.get("name", "Unknown"),
+        dept_data.get("name", "Unknown"),
+        clinic_data,
+    )
+
+
 async def start_consumer():
     global consumer
     consumer = AIOKafkaConsumer(
@@ -66,24 +90,49 @@ async def consume_events():
         db = SessionLocal()
         try:
             if event_type == "provider.created":
-                provider_data = await provider.get_provider(event["provider_id"])
-                text = provider_full_text(provider_data)
+                provider_data = await provider_client.get_provider(event["provider_id"])
+                user_data = await auth_client.get_user(provider_data["user_id"])
+                dept_data = await provider_client.get_department(provider_data["department_id"])
+                text = provider_full_text(provider_data, user_data, dept_data)
+                crud.delete_chunks(db, source)
+                crud.ingest_chunks(db, source, [text])
+
+            elif event_type == "provider.deleted":
+                try:
+                    provider_data = await provider_client.get_provider(event["provider_id"])
+                    user_data = await auth_client.get_user(provider_data["user_id"])
+                    provider_name = user_data.get("name", "Unknown")
+                except Exception:
+                    provider_name = "Unknown"
+                text = provider_deleted_text(event, provider_name)
                 crud.delete_chunks(db, source)
                 crud.ingest_chunks(db, source, [text])
 
             elif event_type == "patient.created":
-                patient_data = await patients.get_patient(event["patient_id"])
-                text = patient_full_text(patient_data)
+                patient_data = await patients_client.get_patient(event["patient_id"])
+                user_data = await auth_client.get_user(patient_data["user_id"])
+                text = patient_full_text(patient_data, user_data)
+                crud.delete_chunks(db, source)
+                crud.ingest_chunks(db, source, [text])
+
+            elif event_type == "patient.deleted":
+                try:
+                    patient_data = await patients_client.get_patient(event["patient_id"])
+                    user_data = await auth_client.get_user(patient_data["user_id"])
+                    patient_name = user_data.get("name", "Unknown")
+                except Exception:
+                    patient_name = "Unknown"
+                text = patient_deleted_text(event, patient_name)
                 crud.delete_chunks(db, source)
                 crud.ingest_chunks(db, source, [text])
 
             elif event_type == "appointment.created":
-                text = event_to_text(event)
-                if text:
-                    crud.delete_chunks(db, source)
-                    crud.ingest_chunks(db, source, [text])
+                patient_name, provider_name, dept_name, clinic_data = await fetch_appointment_context(event)
+                text = appointment_full_text(event, patient_name, provider_name, dept_name, clinic_data)
+                crud.delete_chunks(db, source)
+                crud.ingest_chunks(db, source, [text])
 
-                if event.get("status") == "requested": #scheduling reminders for requested appointments only
+                if event.get("status") == "requested":  # scheduling reminders for requested appointments only
                     client = await get_temporal_client()
                     await client.start_workflow(
                         "AppointmentReminderWorkflow",
@@ -100,25 +149,24 @@ async def consume_events():
                         task_queue=settings.REMINDER_TASK_QUEUE,
                     )
 
-            elif event_type == "appointment.status_updated" and event.get("status") == "cancelled":
-                text = event_to_text(event)
-                if text:
-                    crud.delete_chunks(db, source)
-                    crud.ingest_chunks(db, source, [text])
-
-                try:
-                    client = await get_temporal_client()
-                    handle = client.get_workflow_handle(f"appointment-reminder-{event.get('appointment_id')}")
-                    await handle.signal("cancel") #cancel reminder
-                except Exception:
-                    pass 
-
-            else:
-                text = event_to_text(event)
-                if not text:
-                    continue
+            elif event_type == "appointment.status_updated":
+                patient_name, provider_name, _, clinic_data = await fetch_appointment_context(event)
+                text = appointment_status_updated_text(
+                    event,
+                    patient_name,
+                    provider_name,
+                    clinic_data.get("name", "Unknown"),
+                )
                 crud.delete_chunks(db, source)
                 crud.ingest_chunks(db, source, [text])
+
+                if event.get("status") == "cancelled":  # cancel reminder workflow
+                    try:
+                        client = await get_temporal_client()
+                        handle = client.get_workflow_handle(f"appointment-reminder-{event.get('appointment_id')}")
+                        await handle.signal("cancel")
+                    except Exception:
+                        pass
 
         finally:
             db.close()
