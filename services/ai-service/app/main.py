@@ -1,7 +1,9 @@
+import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.routers import ingest, retrieve
+from app.routers import ingest, retrieve, chat, communication
 from app.database import init_db
+from app import kafka_consumer
 from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -18,8 +20,11 @@ trace.set_tracer_provider(otel_provider)
 
 @asynccontextmanager
 async def lifespan(app):
-    init_db()  # create vector extension + tables on startup
+    init_db()
+    await kafka_consumer.start_consumer()
+    asyncio.create_task(kafka_consumer.consume_events())
     yield
+    await kafka_consumer.stop_consumer()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -28,6 +33,8 @@ Instrumentator().instrument(app).expose(app)
 
 app.include_router(ingest.router)
 app.include_router(retrieve.router)
+app.include_router(chat.router)
+app.include.router(communication.router)
 
 
 @app.get("/health")

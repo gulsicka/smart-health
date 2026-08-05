@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from app.enums import RoleName
+from app.enums import RoleName, CommunicationType
 
 
 class TokenData(BaseModel):
@@ -31,3 +31,13 @@ class RetrieveResult(BaseModel):
 
 class RetrieveResponse(BaseModel):
     results: list[RetrieveResult]
+
+class SyncResponse(BaseModel):
+    counts: dict
+
+class ChatRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    
+class Communication(BaseModel):
+    type: CommunicationType

@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.post("/providers", response_model=schemas.Provider)
-def create_provider(
+async def create_provider(
     provider: schemas.ProviderCreate,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
@@ -20,7 +20,9 @@ def create_provider(
         raise HTTPException(status_code=404, detail="Department not found")
     if crud.get_provider_by_user_id(db, provider.user_id):
         raise HTTPException(status_code=400, detail="Provider already exists for this user")
-    return crud.create_provider(db, provider)
+    db_provider = crud.create_provider(db, provider)
+    await kafka_producer.publish_provider_created(db_provider.id, db_provider.user_id, db_provider.department_id)
+    return db_provider
 
 
 @router.get("/providers", response_model=list[schemas.Provider])

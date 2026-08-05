@@ -396,8 +396,22 @@ services:
     environment:
       SECRET_KEY: ${SECRET_KEY}
       DATABASE_URL: postgresql://postgres:password@ai-db:5432/ai_db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PATIENT_KAFKA_TOPIC: patients.events
+      PROVIDER_KAFKA_TOPIC: providers.events
+      APPOINTMENT_KAFKA_TOPIC: appointments.events
+      PROVIDER_SERVICE_URL: http://provider-service:8000
+      PATIENT_SERVICE_URL: http://patient-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      AUTH_SERVICE_URL: http://auth-service:8000
+      SYSTEM_EMAIL: admin@smarthealth.com
+      SYSTEM_PASSWORD: admin
+      GROQ_API_KEY: ${GROQ_API_KEY}
+
     depends_on:
       ai-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
 volumes:

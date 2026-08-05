@@ -7,6 +7,16 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     DATABASE_URL: str
-
+    PATIENT_KAFKA_TOPIC: str = "patients.events"
+    PROVIDER_KAFKA_TOPIC: str = "providers.events"
+    APPOINTMENT_KAFKA_TOPIC: str = "appointments.events"
+    KAFKA_BOOTSTRAP_SERVERS: str
+    AUTH_SERVICE_URL: str
+    SYSTEM_EMAIL: str
+    SYSTEM_PASSWORD: str
+    PROVIDER_SERVICE_URL: str
+    APPOINTMENT_SERVICE_URL: str
+    PATIENT_SERVICE_URL: str
+    GROQ_API_KEY: str
 
 settings = Settings()

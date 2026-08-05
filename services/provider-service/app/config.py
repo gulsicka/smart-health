@@ -10,6 +10,6 @@ class Settings(BaseSettings):
     KAFKA_BOOTSTRAP_SERVERS: str
     KAFKA_TOPIC: str = "providers.events"
     USERS_KAFKA_TOPIC: str = "users.events"
-
+    
 
 settings = Settings()
