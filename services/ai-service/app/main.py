@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.routers import ingest, retrieve, chat, communication
+from app.routers import ingest, retrieve, chat, communication, report
 from app.database import init_db
 from app import kafka_consumer
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -35,6 +35,7 @@ app.include_router(ingest.router)
 app.include_router(retrieve.router)
 app.include_router(chat.router)
 app.include_router(communication.router)
+app.include_router(report.router)
 
 
 @app.get("/health")

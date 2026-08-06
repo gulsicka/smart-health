@@ -8,8 +8,8 @@ class TokenData(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    source: str          # identifier for what this content is (e.g. "provider-schedules", "clinic-faq")
-    content: str         # raw text to chunk and embed
+    source: str
+    content: str
 
 
 class IngestResponse(BaseModel):
@@ -61,4 +61,12 @@ class GenerateReminderRequest(BaseModel):
 
 
 class GenerateReminderResponse(BaseModel):
+    content: str
+    
+class GenerateReportRequest(BaseModel):
+    report_type: ReportType
+    date: str | None = None
+
+
+class GenerateReportResponse(BaseModel):
     content: str
