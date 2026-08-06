@@ -2,7 +2,7 @@
 #that gets added by report.py when it assembles the message to send to the LLM
 
 
-def totals_stats(date_str, daily, appointments, providers, departments, clinics, patients):
+def totals_stats(date_str, daily, appointments, providers, departments, clinics, patients):#total counts for all entities for a specific date
     return [
         f"Report date: {date_str}",
         f"Total patients: {len(patients)}",
@@ -15,7 +15,7 @@ def totals_stats(date_str, daily, appointments, providers, departments, clinics,
     ]
 
 
-def day_status_stats(daily):
+def day_status_stats(daily):#(specific date)count for all statuses of the appointments and also the cancelation r8
     statuses = {}
     for a in daily:
         statuses[a["status"]] = statuses.get(a["status"], 0) + 1
@@ -30,9 +30,7 @@ def day_status_stats(daily):
     ]
 
 
-def provider_daily_breakdown(daily, departments, provider_map, dept_map, user_map):
-    #precomputed so the LLM never has to tally/group the raw appointment list itself —
-    #that's exactly where it kept inventing "unknown providers" that don't exist
+def provider_daily_breakdown(daily, departments, provider_map, dept_map, user_map):#(specific date)group appointments by provider and dept so LLM doesnt have to count itself
     counts_by_provider = {}
     for a in daily:
         counts_by_provider[a["provider_id"]] = counts_by_provider.get(a["provider_id"], 0) + 1
@@ -55,7 +53,7 @@ def provider_daily_breakdown(daily, departments, provider_map, dept_map, user_ma
     return lines
 
 
-def day_appointment_lines(daily, provider_map, dept_map, user_map):
+def day_appointment_lines(daily, provider_map, dept_map, user_map):#get app details wiht provider, dept names, status, start time etc
     lines = []
     for i, a in enumerate(daily, start=1):
         prov      = provider_map.get(a["provider_id"], {})
@@ -65,7 +63,7 @@ def day_appointment_lines(daily, provider_map, dept_map, user_map):
     return lines
 
 
-def busiest_department(daily, provider_map, dept_map):
+def busiest_department(daily, provider_map, dept_map):#(specific date)find dept with most appointments that day
     counts = {}
     for a in daily:
         dept_id = provider_map.get(a["provider_id"], {}).get("department_id")
@@ -77,10 +75,8 @@ def busiest_department(daily, provider_map, dept_map):
     return dept_map.get(busiest_id, {}).get("name", "Unknown"), counts[busiest_id]
 
 
-def build_daily_report(date_str, appointments, providers, departments, clinics, patients, provider_map, dept_map, user_map):
-    #returns (stats_text, records_text) as two separate PURE strings — report.py decides
-    #how to frame/label them when building the prompt, they aren't baked in here
-    daily = [a for a in appointments if str(a["date"]).startswith(date_str)]
+def build_daily_report(date_str, appointments, providers, departments, clinics, patients, provider_map, dept_map, user_map):#(specific date)builds stats text + records text separately, report.py adds the framing
+    daily = [a for a in appointments if str(a["date"]).startswith(date_str)]#appointments for a specific date
 
     stats_lines = (
         totals_stats(date_str, daily, appointments, providers, departments, clinics, patients)
@@ -94,8 +90,8 @@ def build_daily_report(date_str, appointments, providers, departments, clinics, 
     return stats_text, records_text
 
 
-def build_executive_snapshot(date_str, appointments, providers, departments, clinics, patients, provider_map, dept_map):
-    daily = [a for a in appointments if str(a["date"]).startswith(date_str)]
+def build_executive_snapshot(date_str, appointments, providers, departments, clinics, patients, provider_map, dept_map):#(specific date)totals + status + busiest dept for the snapshot
+    daily = [a for a in appointments if str(a["date"]).startswith(date_str)]#appointments for a specific date
     busiest_name, busiest_count = busiest_department(daily, provider_map, dept_map)
 
     lines = (
@@ -106,7 +102,7 @@ def build_executive_snapshot(date_str, appointments, providers, departments, cli
     return "\n".join(lines)
 
 
-def build_department_utilization(appointments, departments, provider_map, user_map):
+def build_department_utilization(appointments, departments, provider_map, user_map):#(all time)get total appointments per department and providers to whom the app is assigned
     lines = []
     for dept in departments:
         dept_appts = [a for a in appointments if provider_map.get(a["provider_id"], {}).get("department_id") == dept["id"]]
@@ -130,7 +126,7 @@ def build_department_utilization(appointments, departments, provider_map, user_m
     return "\n".join(lines)
 
 
-def build_patient_engagement(appointments, patients, user_map):
+def build_patient_engagement(appointments, patients, user_map):#(all time)get patient stats for appointments, incl top 5 engaged and zero-appointment list
     counts = {}
     for a in appointments:
         counts[a["patient_id"]] = counts.get(a["patient_id"], 0) + 1

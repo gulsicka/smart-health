@@ -11,6 +11,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.langchain import LangchainInstrumentor
 
 resource = Resource.create({"service.name": "ai-service"})
 otel_provider = TracerProvider(resource=resource)
@@ -29,6 +30,7 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
+LangchainInstrumentor().instrument()  # auto-wraps every ChatGroq call (chat.py, communication.py, report.py) with its own span — model, tokens, latency, errors
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(ingest.router)

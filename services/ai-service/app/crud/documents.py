@@ -24,7 +24,7 @@ def ingest_chunks(db: Session, source: str, chunks: list[str], file_hash: str = 
 
 def retrieve_chunks(db, query, top_k, source_prefix: str = None):
     query_vector = embedder.embed(query)
-    distance = models.DocumentChunk.embedding.l2_distance(query_vector).label("score")
+    distance = models.DocumentChunk.embedding.cosine_distance(query_vector).label("score")
     q = db.query(models.DocumentChunk, distance)
     if source_prefix:
         q = q.filter(models.DocumentChunk.source.startswith(source_prefix))
