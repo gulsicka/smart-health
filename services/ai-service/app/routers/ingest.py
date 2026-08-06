@@ -16,6 +16,8 @@ from app.utils.event_text import (
     clinic_full_text,
     department_full_text,
 )
+from app.utils import report_text
+from datetime import date
 
 router = APIRouter()
 
@@ -66,7 +68,7 @@ async def sync(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
-    counts = {"providers": 0, "patients": 0, "appointments": 0, "clinics": 0, "departments": 0}
+    counts = {"providers": 0, "patients": 0, "appointments": 0, "clinics": 0, "departments": 0, "report_chunks": 0}
 
     # build lookup maps upfront — one call per service, no N+1
     all_users = await auth_client.get_all_users()
@@ -97,7 +99,9 @@ async def sync(
         crud.ingest_chunks(db, f"patient-{patient['id']}", [patient_full_text(patient, user)])
         counts["patients"] += 1
 
-    for appt in await appointment_client.get_all_appointments():
+    all_appointments = await appointment_client.get_all_appointments()
+
+    for appt in all_appointments:
         patient = patient_map.get(appt["patient_id"], {})
         patient_user = user_map.get(patient.get("user_id"), {})
         prov = provider_map.get(appt["provider_id"], {})
@@ -125,5 +129,46 @@ async def sync(
         crud.delete_chunks(db, f"department-{dept['id']}")
         crud.ingest_chunks(db, f"department-{dept['id']}", [department_full_text(dept)])
         counts["departments"] += 1
+
+    # ---- report stat chunks — precomputed here so /generate/report is a plain, deterministic
+    # chunk lookup (exact source match, no similarity search) instead of live microservice calls ----
+    distinct_dates = sorted({str(a["date"])[:10] for a in all_appointments})
+    today_str = date.today().isoformat()
+    if today_str not in distinct_dates:
+        distinct_dates.append(today_str)
+
+    for date_str in distinct_dates:
+        stats_text, records_text = report_text.build_daily_report(
+            date_str, all_appointments, all_providers, all_depts, all_clinics, all_patients,
+            provider_map, dept_map, user_map,
+        )
+        stats_source = f"report-daily_appointments-{date_str}"
+        crud.delete_chunks(db, stats_source)
+        crud.ingest_chunks(db, stats_source, [stats_text])
+        counts["report_chunks"] += 1
+
+        records_source = f"report-daily_appointments-{date_str}-records"
+        crud.delete_chunks(db, records_source)
+        crud.ingest_chunks(db, records_source, [records_text])
+        counts["report_chunks"] += 1
+
+        exec_text = report_text.build_executive_snapshot(
+            date_str, all_appointments, all_providers, all_depts, all_clinics, all_patients,
+            provider_map, dept_map,
+        )
+        exec_source = f"report-executive_snapshot-{date_str}"
+        crud.delete_chunks(db, exec_source)
+        crud.ingest_chunks(db, exec_source, [exec_text])
+        counts["report_chunks"] += 1
+
+    dept_util_text = report_text.build_department_utilization(all_appointments, all_depts, provider_map, user_map)
+    crud.delete_chunks(db, "report-department_utilization")
+    crud.ingest_chunks(db, "report-department_utilization", [dept_util_text])
+    counts["report_chunks"] += 1
+
+    engagement_text = report_text.build_patient_engagement(all_appointments, all_patients, user_map)
+    crud.delete_chunks(db, "report-patient_engagement")
+    crud.ingest_chunks(db, "report-patient_engagement", [engagement_text])
+    counts["report_chunks"] += 1
 
     return schemas.SyncResponse(counts=counts)
