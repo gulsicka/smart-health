@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram name="SmartHealth — Database Schema" id="0">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1950" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2230" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1032,6 +1032,116 @@
         </mxCell>
         <mxCell id="395n" parent="30" style="text;html=1;align=left;verticalAlign=top;resizable=0;points=[];autosize=0;strokeColor=none;fillColor=#fff2cc;fontSize=9;fontColor=#444;rounded=1;" value="&lt;b&gt;schedule jsonb (one row per provider+clinic):&lt;/b&gt;&lt;br&gt;[&lt;br&gt;&amp;nbsp;&amp;nbsp;{ &amp;quot;day&amp;quot;: &amp;quot;monday&amp;quot;, &amp;quot;start_time&amp;quot;: &amp;quot;09:00&amp;quot;,&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;quot;end_time&amp;quot;: &amp;quot;17:00&amp;quot;, &amp;quot;status&amp;quot;: &amp;quot;available&amp;quot; },&lt;br&gt;&amp;nbsp;&amp;nbsp;{ &amp;quot;day&amp;quot;: &amp;quot;tuesday&amp;quot;, ..., &amp;quot;status&amp;quot;: &amp;quot;on_leave&amp;quot; },&lt;br&gt;&amp;nbsp;&amp;nbsp;...&lt;br&gt;]" vertex="1">
           <mxGeometry height="110" width="220" x="10" y="800" as="geometry" />
+        </mxCell>
+
+        <!-- ========== ai_db (pgvector) ========== -->
+        <mxCell id="80" parent="1" style="swimlane;startSize=30;fillColor=#ccffff;strokeColor=#006666;fontStyle=1;fontSize=13;" value="ai_db  (pgvector)" vertex="1">
+          <mxGeometry height="400" width="260" x="1940" y="20" as="geometry" />
+        </mxCell>
+
+        <!-- document_chunks table -->
+        <mxCell id="900" parent="80" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=0;fontStyle=1;align=center;resizeLast=1;fontSize=12;" value="document_chunks" vertex="1">
+          <mxGeometry height="210" width="240" x="10" y="50" as="geometry" />
+        </mxCell>
+
+        <!-- id : int  PK -->
+        <mxCell id="901" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=1;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="902" parent="901" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;fontStyle=1;overflow=hidden;fontSize=11;" value="PK" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="903" parent="901" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="id : int" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- source : str  [indexed, no FK — logical key] -->
+        <mxCell id="904" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=1;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="905" parent="904" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;fontStyle=1;overflow=hidden;fontSize=11;" value="IX" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="906" parent="904" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="source : str  [no FK]" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- content : text -->
+        <mxCell id="907" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=1;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="908" parent="907" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="909" parent="907" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="content : text" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- embedding : vector(384) -->
+        <mxCell id="910" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=1;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="911" parent="910" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="912" parent="910" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="embedding : vector(384)" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- file_hash : str  (nullable) -->
+        <mxCell id="913" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=1;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="914" parent="913" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="915" parent="913" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="file_hash : str  (nullable)" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- created_at : datetime  (last row) -->
+        <mxCell id="916" parent="900" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=11;top=0;left=0;right=0;bottom=0;" value="" vertex="1">
+          <mxGeometry height="30" width="240" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="917" parent="916" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="" vertex="1">
+          <mxGeometry height="30" width="60" as="geometry">
+            <mxRectangle height="30" width="60" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="918" parent="916" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;overflow=hidden;fontSize=11;" value="created_at : datetime" vertex="1">
+          <mxGeometry height="30" width="180" x="60" as="geometry">
+            <mxRectangle height="30" width="180" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- explanatory note: source key formats -->
+        <mxCell id="920" parent="80" style="text;html=1;align=left;verticalAlign=top;resizable=0;points=[];autosize=0;strokeColor=none;fillColor=#e6ffff;fontSize=9;fontColor=#444;rounded=1;" value="&lt;b&gt;source key formats (no real FK — deterministic string key):&lt;/b&gt;&lt;br&gt;provider-{id}  ·  patient-{id}  ·  clinic-{id}  ·  department-{id}&lt;br&gt;patient-{p}-provider-{q}-clinic-{r}-appointment-{s}&lt;br&gt;report-daily_appointments-{date}  ·  report-executive_snapshot-{date}&lt;br&gt;report-department_utilization  ·  report-patient_engagement&lt;br&gt;&lt;i&gt;report-* rows are pure stats for /generate/report's exact lookup only&lt;/i&gt;" vertex="1">
+          <mxGeometry height="120" width="240" x="10" y="270" as="geometry" />
+        </mxCell>
+
+        <!-- REST pull (not Kafka) — /ingest/sync rebuilds chunks from auth/patient/provider/appointment services -->
+        <mxCell id="640" edge="1" parent="1" source="401" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#006666;strokeWidth=2;fontSize=10;fontColor=#006666;endArrow=open;endFill=0;startArrow=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" target="900" value="REST pull (/ingest/sync) → ai_db">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

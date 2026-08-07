@@ -236,6 +236,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: appointments.events
       PATIENT_KAFKA_TOPIC: patients.events
+      AI_KAFKA_TOPIC: ai.events
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
       DATABASE_URL: postgresql://postgres:password@analytics-db:5432/analytics_db
@@ -402,6 +403,7 @@ services:
       PATIENT_KAFKA_TOPIC: patients.events
       PROVIDER_KAFKA_TOPIC: providers.events
       APPOINTMENT_KAFKA_TOPIC: appointments.events
+      AI_KAFKA_TOPIC: ai.events
       PROVIDER_SERVICE_URL: http://provider-service:8000
       PATIENT_SERVICE_URL: http://patient-service:8000
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
@@ -409,6 +411,7 @@ services:
       SYSTEM_EMAIL: admin@smarthealth.com
       SYSTEM_PASSWORD: admin
       GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL}
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
       REMINDER_TASK_QUEUE: appointment_reminder_queue

@@ -27,5 +27,11 @@ def retrieve_chunks(db, query, top_k, source_prefix: str = None):
     distance = models.DocumentChunk.embedding.cosine_distance(query_vector).label("score")
     q = db.query(models.DocumentChunk, distance)
     if source_prefix:
-        q = q.filter(models.DocumentChunk.source.startswith(source_prefix))
+        source = models.DocumentChunk.source
+        q = q.filter(
+            (source == source_prefix)
+            | source.startswith(source_prefix + "-")
+            | source.endswith("-" + source_prefix)
+            | source.contains("-" + source_prefix + "-")
+        )
     return q.order_by(distance).limit(top_k).all()

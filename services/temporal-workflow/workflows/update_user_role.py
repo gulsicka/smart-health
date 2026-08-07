@@ -2,6 +2,8 @@ from datetime import timedelta
 from functools import partial
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from schemas import UserInput, UserIdInput, NotifyUserInput
+from saga import Saga
 
 with workflow.unsafe.imports_passed_through():
     from activities.user import (
@@ -13,8 +15,6 @@ with workflow.unsafe.imports_passed_through():
         notify_user_role_updated_activity,
         notify_user_role_update_failed_activity,
     )
-    from schemas import UserInput, UserIdInput, NotifyUserInput
-    from saga import Saga
 
 
 @workflow.defn

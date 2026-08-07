@@ -5,6 +5,7 @@ import json
 from .config import settings
 from .celery_client import notify_booking_confirmation, notify_appointment_cancellation
 from app.crud.appointments import insert_event
+from app.crud.ai_events import insert_ai_event
 
 consumer: AIOKafkaConsumer | None = None
 redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -60,12 +61,28 @@ async def handle_event(event: dict):
             notify_appointment_cancellation(patient_id, appointment_id)
             insert_event(event, "appointment.cancelled") #time scale db record insertion
 
+    elif event_type in ("ai.chat", "ai.communication", "ai.report"):
+        ai_status = event.get("status", "unknown")
+
+        await redis_client.incr("analytics:ai_usage:total")
+        await redis_client.incr(f"analytics:ai_usage:{event_type}")
+
+        if event_type == "ai.chat":                                            
+            await redis_client.incr(f"analytics:ai_chat:{ai_status}")
+
+        elif event_type == "ai.communication":
+            comm_type = event.get("communication_type", "unknown")
+            await redis_client.incr(f"analytics:ai_communication:{comm_type}:{ai_status}")
+
+        insert_ai_event(event, event_type) #time scale db record insertion
+
 
 async def start_consumer():
     global consumer
     consumer = AIOKafkaConsumer(
         settings.KAFKA_TOPIC,
         settings.PATIENT_KAFKA_TOPIC,
+        settings.AI_KAFKA_TOPIC,
         bootstrap_servers="kafka:9092",
         group_id="analytics-service",
         value_deserializer=lambda v: json.loads(v.decode("utf-8")),

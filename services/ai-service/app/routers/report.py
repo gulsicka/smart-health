@@ -7,6 +7,8 @@ from app.config import settings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 import datetime
+from app import kafka_producer
+import uuid
 
 router = APIRouter()
 
@@ -54,6 +56,20 @@ def build_context(report_type: str, stats_chunk, records_chunk) -> str:
     return context
 
 
+async def publish_report_event(user_id: int, report_type: str, status: str):#counts toward overall "AI Assistant Usage" alongside chat/communication
+    await kafka_producer.publish_event(
+        event={
+            "event_type": "ai.report",
+            "report_type": report_type,
+            "status": status,  # "answered" or "failed"
+            "user_id": user_id,
+            "event_id": str(uuid.uuid4()),
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        },
+        key=str(user_id),
+    )
+
+
 async def generate_report_text(context: str, instruction: str) -> str:
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
@@ -71,32 +87,40 @@ async def generate_report(
 ):
     date_str = body.date or datetime.date.today().isoformat()
     report_type = body.report_type.value
+    status = "answered"
 
-    if report_type == "daily_appointments":
-        stats_source = f"report-daily_appointments-{date_str}"
-        records_source = f"report-daily_appointments-{date_str}-records"
-    elif report_type == "executive_snapshot":
-        stats_source = f"report-executive_snapshot-{date_str}"
-        records_source = None
-    elif report_type == "department_utilization":
-        stats_source = "report-department_utilization"
-        records_source = None
-    elif report_type == "patient_engagement":
-        stats_source = "report-patient_engagement"
-        records_source = None
-    else:
-        raise HTTPException(status_code=400, detail="Unknown report type")
+    try:
+        if report_type == "daily_appointments":
+            stats_source = f"report-daily_appointments-{date_str}"
+            records_source = f"report-daily_appointments-{date_str}-records"
+        elif report_type == "executive_snapshot":
+            stats_source = f"report-executive_snapshot-{date_str}"
+            records_source = None
+        elif report_type == "department_utilization":
+            stats_source = "report-department_utilization"
+            records_source = None
+        elif report_type == "patient_engagement":
+            stats_source = "report-patient_engagement"
+            records_source = None
+        else:
+            raise HTTPException(status_code=400, detail="Unknown report type")
 
-    stats_chunk = crud.get_existing_chunk(db, stats_source)
-    if not stats_chunk:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No cached report data for '{report_type}'"
-                   + (f" on {date_str}" if body.report_type in (ReportType.daily_appointments, ReportType.executive_snapshot) else "")
-                   + " — run /ingest/sync first.",
-        )
-    records_chunk = crud.get_existing_chunk(db, records_source) if records_source else None
+        stats_chunk = crud.get_existing_chunk(db, stats_source)
+        if not stats_chunk:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No cached report data for '{report_type}'"
+                       + (f" on {date_str}" if body.report_type in (ReportType.daily_appointments, ReportType.executive_snapshot) else "")
+                       + " — run /ingest/sync first.",
+            )
+        records_chunk = crud.get_existing_chunk(db, records_source) if records_source else None
 
-    context = build_context(report_type, stats_chunk, records_chunk)
-    content = await generate_report_text(context, REPORT_INSTRUCTIONS[report_type])
+        context = build_context(report_type, stats_chunk, records_chunk)
+        content = await generate_report_text(context, REPORT_INSTRUCTIONS[report_type])
+    except Exception:
+        status = "failed"
+        raise
+    finally:
+        await publish_report_event(current_user.user_id, report_type, status)
+
     return schemas.GenerateReportResponse(content=content)

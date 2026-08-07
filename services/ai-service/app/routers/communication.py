@@ -6,12 +6,15 @@ from app.enums import RoleName, CommunicationType
 from app.config import settings
 from langchain_groq import ChatGroq
 from app.utils.helpers import build_context
+from app import kafka_producer
+from datetime import datetime
+import uuid
 
 router = APIRouter()
 
 llm = ChatGroq(
     api_key=settings.GROQ_API_KEY,
-    model="llama-3.1-8b-instant",
+    model=settings.GROQ_MODEL,
     streaming=False,
 )
 
@@ -22,9 +25,23 @@ PROMPTS = {
     CommunicationType.operational_assistance: "You are a healthcare operations assistant. Based on the context below, provide a clear and concise operational assistance response suitable for healthcare staff.",
 }
 
+async def publish_communication_event(user_id: int, communication_type: str, status: str):#feeds "generated communication usage" analytics, broken down by type
+    await kafka_producer.publish_event(
+        event={
+            "event_type": "ai.communication",
+            "communication_type": communication_type,
+            "status": status,
+            "user_id": user_id,
+            "event_id": str(uuid.uuid4()),
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+        key=str(user_id),
+    )
+
+
 def get_response(body: schemas.GenerateCommunicationRequest, db: Session):
     prompt = PROMPTS[body.type]
-    
+
     if body.patient_id:
         source_prefix = f"patient-{body.patient_id}"
     elif body.provider_id:
@@ -34,10 +51,10 @@ def get_response(body: schemas.GenerateCommunicationRequest, db: Session):
     else:
         source_prefix = None
 
-    
+
     results = crud.retrieve_chunks(db, body.type.value, body.top_k, source_prefix=source_prefix)
     chunks = [row for row, score in results]
-    
+
     context = build_context(chunks)
     response = llm.invoke([
         ("system", prompt),
@@ -46,12 +63,20 @@ def get_response(body: schemas.GenerateCommunicationRequest, db: Session):
     return response.content
 
 @router.post("/generate/communication")
-def generate_communication(
+async def generate_communication(
     body: schemas.GenerateCommunicationRequest,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
-    return schemas.GenerateCommunicationResponse(content=get_response(body, db))
+    status = "answered"
+    try:
+        content = get_response(body, db)
+    except Exception:
+        status = "failed"
+        raise
+    finally:
+        await publish_communication_event(current_user.user_id, body.type.value, status)
+    return schemas.GenerateCommunicationResponse(content=content)
 
 
 @router.post("/generate/reminder")

@@ -8,23 +8,23 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 
 ```
                     Client / API Gateway
-    +----------+----------+----------+------------+
-    |          |          |          |            |
-+---+------++--+------++--+-------++--+-----------+
-| auth-svc || patient- || provider-|| appt-svc    |
-|  :8001   || svc:8002 || svc:8003 || :8004       |
-+---+------++--+------++--+-------++--+-----------+
-    |            |           |            |
-    v            v           v            v
- auth-db     patient-db  provider-db  appt-db
-(postgres)   (postgres)  (postgres)  (postgres)
-    |                                    |
-    | JWT blocklist     appointment.created / status_updated
-    v                                    v
-  Redis                            Apache Kafka
- (cache)                                 |
-    ^                           +--------+-------+
-    | analytics counters        | analytics-svc  |
+    +----------+----------+----------+-----------+-----------+
+    |          |          |          |           |           |
++---+------++--+------++--+-------++--+---------++-+---------+
+| auth-svc || patient- || provider-|| appt-svc  || ai-svc    |
+|  :8001   || svc:8002 || svc:8003 || :8004     || :8007     |
++---+------++--+------++--+-------++--+---------++-+---------+
+    |            |           |            |            |
+    v            v           v            v            v
+ auth-db     patient-db  provider-db  appt-db       ai-db
+(postgres)   (postgres)  (postgres)  (postgres)   (pgvector
+    |                                    |          :5441)
+    | JWT blocklist     appointment.created /         |
+    v                     status_updated              |
+  Redis                            Apache Kafka <-----+
+ (cache)                                 |    ai.events (ai.chat /
+    ^                           +--------+-------+   ai.report /
+    | analytics counters        | analytics-svc  |   ai.communication)
     +---------------------------|    :8005       |
                                 +--------+-------+
                                          |         \
@@ -43,11 +43,47 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
                    |calls:     |          |        |
                    |patient-,  |          v        |
                    |provider-, |   notification-db |
-                   |auth-svc   |     (postgres)    |
+                   |auth-svc,  |     (postgres)    |
+                   |ai-svc     |                   |
                    +--------+--+                   |
                             |                      |
                             +--Celery send_task----+
                             (on WF complete/failure)
+
+
+  billing-svc :8006 ---> billing-db (postgres :5440)
+        ^
+        +--- consumes appointments.events from Kafka (see Billing below)
+
+
+  GenAI Layer — ai-service :8007
+  +-----------------------------------------------------------------------+
+  |                                                                       |
+  |  REST pull (POST /ingest/sync — rebuilds the whole knowledge base):   |
+  |    ai-svc --GET /users----------------> auth-svc                      |
+  |    ai-svc --GET /patients-------------> patient-svc                   |
+  |    ai-svc --GET /providers, /clinics,-> provider-svc                  |
+  |             /departments                                              |
+  |    ai-svc --GET /appointments---------> appt-svc                      |
+  |         |                                                             |
+  |         v  embed (all-MiniLM-L6-v2), then store                       |
+  |    ai-db (pgvector): entity chunks + precomputed report stat chunks   |
+  |                                                                       |
+  |  Kafka consume (incremental chunk updates, no full re-sync needed):   |
+  |    patients.events, providers.events, appointments.events --> ai-svc  |
+  |                                                                       |
+  |  Kafka publish (AI usage analytics):                                  |
+  |    ai-svc --[ai.events: ai.chat / ai.report / ai.communication]-->    |
+  |                              analytics-svc  (GET /analytics/ai)       |
+  |                                                                       |
+  |  Temporal (reminder generation):                                      |
+  |    temporal-workflow (AppointmentReminderWorkflow)                    |
+  |      --POST /generate/reminder--> ai-svc --> Groq LLM                 |
+  |                                                                       |
+  |  External LLM:                                                        |
+  |    ai-svc --LangChain (ChatGroq)--> Groq API (llama-3.1-8b-instant)   |
+  |                                                                       |
+  +-----------------------------------------------------------------------+
 
 
   Orphan Data / Cascade Cleanup (Kafka event chain)
@@ -112,6 +148,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | appointment-service | 8004 | Booking, status updates, Kafka event publishing |
 | analytics-service | 8005 | Kafka consumer, Redis counters, TimescaleDB event store, analytics API |
 | billing-service | 8006 | Kafka consumer, fixed-fee invoice lifecycle (pending → paid / refunded), per-appointment billing |
+| ai-service | 8007 | GenAI layer — RAG chat, report/summary generation, AI-drafted communications, pgvector knowledge base |
 | notification-service | — | Celery worker, persists notifications to Postgres |
 | temporal-workflow | — | Temporal worker for user creation + appointment validation workflows |
 
@@ -129,6 +166,9 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | Async Task Queue | Celery + RabbitMQ |
 | Caching / Counters | Redis |
 | Time-Series Analytics DB | TimescaleDB (PostgreSQL extension) |
+| Vector Store | pgvector (PostgreSQL extension) |
+| Embeddings | sentence-transformers (`all-MiniLM-L6-v2`) |
+| LLM | Groq API (`llama-3.1-8b-instant`) via LangChain |
 | Monitoring | Prometheus + Grafana |
 | Containerization | Docker + Docker Compose |
 
@@ -148,6 +188,8 @@ Create a `.env` file in the project root:
 ```env
 SECRET_KEY=your-secret-key-here
 CLUSTER_ID=your-base64-kafka-cluster-uuid
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
 Generate a Kafka `CLUSTER_ID`:
@@ -234,6 +276,7 @@ docker compose down -v       # stop + delete all volumes (fresh state)
 | GET | `/analytics` | Total appointments, completions, cancellations, daily breakdowns (Redis counters) |
 | GET | `/analytics/filter` | Filter events by date range, clinic, provider — grouped by day and event type (TimescaleDB) |
 | GET | `/analytics/total-created` | Count of a specific event type between two dates (TimescaleDB) |
+| GET | `/analytics/ai` | AI assistant usage, questions asked/answered, generated communication usage by type (admin) |
 
 ### Billing Service — `localhost:8006`
 
@@ -245,6 +288,21 @@ All billing endpoints require a Bearer token. The `invoices/patient/{patient_id}
 | GET | `/invoices/{invoice_id}` | Admin, FD Staff | Get a single invoice by ID |
 | GET | `/invoices/appointment/{appointment_id}` | Admin, FD Staff, Provider | Get the invoice for a specific appointment |
 | GET | `/invoices/patient/{patient_id}` | Admin, FD Staff, Patient | List all invoices for a patient |
+
+### AI Service — `localhost:8007`
+
+All AI endpoints are admin-only.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/chat` | Natural-language Q&A over platform data, streamed as SSE (hybrid vector + full-text retrieval) |
+| POST | `/generate/report` | Generate a report: `daily_appointments`, `department_utilization`, `patient_engagement`, `executive_snapshot` |
+| POST | `/generate/communication` | Draft a `follow_up`, `service_recommendation`, `preventive_care`, or `operational_assistance` message |
+| POST | `/generate/reminder` | Draft an appointment reminder (`day_before` / `hour_before`) — called by the Temporal reminder workflow |
+| POST | `/ingest/sync` | Rebuild the knowledge base from all services + recompute report stat chunks |
+| POST | `/ingest` | Ingest arbitrary raw text under a given source key |
+| POST | `/ingest/pdf` | Ingest a PDF (skipped if the file hash is unchanged) |
+| POST | `/retrieve` | Debug endpoint — return the raw retrieved chunks and scores for a query |
 
 ---
 
@@ -265,6 +323,10 @@ All billing endpoints require a Bearer token. The `invoices/patient/{patient_id}
 **Per-service databases** — Each service owns its Postgres database. No cross-service foreign keys; references are by ID only.
 
 **CRUD package pattern** — Each service uses a `crud/` package with one file per model, re-exported via `__init__.py`. Router imports don't change when logic is split.
+
+**LLM for language, code for math** — Report generation never asks the LLM to compute a number. Every total, count, and percentage is calculated deterministically in Python (`utils/report_text.py`) during `/ingest/sync` and stored as a pure-data chunk in pgvector; at request time the LLM only narrates from those pre-verified figures. This came out of real failures — given a raw appointment list the model miscounted totals (mistaking a database ID for a count) and invented providers that didn't exist. Prompt framing and section labels are added only when the request is assembled, never persisted into the vector store, so the stored chunks stay reusable data rather than frozen prompts.
+
+**Hybrid retrieval instead of query parsing** — Embeddings capture meaning, but numbers carry almost no meaning to an embedding model: `patient-36` and `patient-43` land nearly on top of each other in vector space, so pure similarity search could not reliably answer "how many appointments does patient 36 have?". Rather than regex-parsing entity IDs out of the query (brittle — it only works for phrasings the regex anticipates), `retrieve_chunks()` runs two searches and fuses them: pgvector cosine similarity for meaning, and Postgres full-text search (`to_tsvector`/`ts_rank`) for exact tokens like IDs and names. Results are merged with Reciprocal Rank Fusion, which compares only each chunk's *position* in each list — so the incompatible score scales are never compared directly. Report stat chunks are excluded from retrieval entirely, since their keyword-dense text falsely outranked real records.
 
 **Event-driven billing** — billing-service has no HTTP calls from appointment-service; it is a pure Kafka consumer on `appointments.events` (the same topic analytics-service uses). On `appointment.created` it creates a pending invoice for a fixed $100 consultation fee. On `appointment.status_updated`, it marks the invoice paid (completed) or refunded (cancelled / no_show). Kafka event deduplication uses Redis `SET NX` on `billing:event:{event_id}` with a 24h TTL, with a DB-level unique constraint on `appointment_id` as a second safety net. The service exposes read-only REST endpoints for querying invoices by ID, appointment, or patient.
 
@@ -290,6 +352,7 @@ Each service exposes interactive API docs at `/docs`:
 - Appointment: `http://localhost:8004/docs`
 - Analytics: `http://localhost:8005/docs`
 - Billing: `http://localhost:8006/docs`
+- AI: `http://localhost:8007/docs`
 
 ---
 
@@ -326,3 +389,41 @@ appointment.status_updated:
 - `patient_id` → `users.id` / `patients.user_id` in auth-db / patient-db
 - `provider_id` → `providers.user_id` in provider-db
 - `clinic_id` → `clinics.id` in provider-db
+
+### ai-db — `document_chunks`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | integer | PK, auto-increment | Chunk primary key |
+| `source` | varchar | NOT NULL, indexed | Logical key identifying what the chunk describes (see below) |
+| `content` | text | NOT NULL | The chunk text — plain facts only, never prompt framing |
+| `embedding` | vector(384) | NOT NULL | `all-MiniLM-L6-v2` embedding of `content` |
+| `file_hash` | varchar | nullable | MD5 of the source PDF, used to skip unchanged re-ingestion |
+| `created_at` | timestamp | default now() | Record creation time |
+
+**`source` key formats** — the source is a deterministic key, so a chunk can be fetched by exact lookup as well as by search:
+
+```
+provider-{id}                 department-{id}
+patient-{id}                  clinic-{id}
+patient-{p}-provider-{q}-clinic-{r}-appointment-{s}     (compound, one per appointment)
+
+report-daily_appointments-{YYYY-MM-DD}            report-department_utilization
+report-daily_appointments-{YYYY-MM-DD}-records    report-patient_engagement
+report-executive_snapshot-{YYYY-MM-DD}
+```
+
+`report-*` chunks are precomputed statistics consumed only by `/generate/report` via exact-key lookup, and are excluded from `/chat` retrieval.
+
+### analytics-db — `ai_interaction_events`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | integer | PK (composite with `time`), auto-increment | Event row key |
+| `time` | timestamp | PK (composite with `id`), NOT NULL | When the interaction happened |
+| `event_type` | varchar | NOT NULL | `ai.chat` \| `ai.communication` \| `ai.report` |
+| `status` | varchar | NOT NULL | `answered` \| `failed` |
+| `communication_type` | varchar | nullable | Set only for `ai.communication` events |
+| `user_id` | integer | nullable | The admin who triggered the interaction |
+
+Populated by analytics-service consuming the `ai.events` Kafka topic; Redis counters serve the real-time totals behind `GET /analytics/ai`.

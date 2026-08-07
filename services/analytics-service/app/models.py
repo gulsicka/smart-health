@@ -14,4 +14,17 @@ class AppointmentEvent(Base):
     __table_args__ = (
         PrimaryKeyConstraint('id', 'time'),
     )
-    
+
+
+class AIInteractionEvent(Base):
+    __tablename__ = "ai_interaction_events"
+    id                  = Column(Integer, autoincrement=True, nullable=False)
+    time                = Column(DateTime, default=datetime.utcnow, nullable=False)
+    event_type          = Column(String, nullable=False) 
+    status              = Column(String, nullable=False)
+    communication_type  = Column(String, nullable=True)#only set for ai.communication
+    user_id             = Column(Integer, nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('id', 'time'),
+    )

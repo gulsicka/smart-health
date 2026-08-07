@@ -80,3 +80,42 @@ def get_total_appointments_created(
     ).scalar()
 
     return {"total": total, "event_type": event_type, "from": from_date, "to": to_date}
+
+
+@router.get("/analytics/ai")
+async def get_ai_analytics():
+    # ---- AI Assistant Usage — overall + per feature ----
+    total_usage = int((await redis_client.get("analytics:ai_usage:total")) or 0)
+    chat_usage = int((await redis_client.get("analytics:ai_usage:ai.chat")) or 0)
+    communication_usage_total = int((await redis_client.get("analytics:ai_usage:ai.communication")) or 0)
+    report_usage = int((await redis_client.get("analytics:ai_usage:ai.report")) or 0)
+
+    # ---- Questions Asked/Answered — /chat specific ----
+    chat_answered = int((await redis_client.get("analytics:ai_chat:answered")) or 0)
+    chat_failed = int((await redis_client.get("analytics:ai_chat:failed")) or 0)
+    chat_asked = chat_answered + chat_failed
+    answered_rate = round(chat_answered / chat_asked, 2) if chat_asked else 0
+
+    # ---- Generated Communication Usage — broken down by type ----
+    communication_types = ["follow_up", "service_recommendation", "preventive_care", "operational_assistance"]
+    communication_by_type = {}
+    for comm_type in communication_types:
+        answered = int((await redis_client.get(f"analytics:ai_communication:{comm_type}:answered")) or 0)
+        failed = int((await redis_client.get(f"analytics:ai_communication:{comm_type}:failed")) or 0)
+        communication_by_type[comm_type] = {"answered": answered, "failed": failed, "total": answered + failed}
+
+    return {
+        "ai_assistant_usage": {
+            "total": total_usage,
+            "chat": chat_usage,
+            "communication": communication_usage_total,
+            "report": report_usage,
+        },
+        "questions_asked_answered": {
+            "asked": chat_asked,
+            "answered": chat_answered,
+            "failed": chat_failed,
+            "answered_rate": answered_rate,
+        },
+        "generated_communication_usage": communication_by_type,
+    }
