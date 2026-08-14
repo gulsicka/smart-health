@@ -16,7 +16,7 @@ router = APIRouter()
 llm = ChatGroq(
     api_key=settings.GROQ_API_KEY,
     model=settings.GROQ_MODEL,
-    temperature=0,  # same context should always give the same answer, no random hedging
+    temperature=0, 
     streaming=True,
 )
 
@@ -42,7 +42,7 @@ MAX_TOOL_ITERATIONS = 5
 llm_with_tools = llm.bind_tools(TOOLS)
 
 
-async def publish_chat_event(user_id: int, status: str):  # one event per /chat call — feeds "questions asked/answered" analytics
+async def publish_chat_event(user_id: int, status: str):
     await kafka_producer.publish_event(
         event={
             "event_type": "ai.chat",
@@ -71,20 +71,13 @@ async def stream_response(query: str, user_id: int):
             messages.append(full)
 
             if not full.tool_calls:
-                return  # already streamed the whole answer above, nothing left to do
-
-            # smaller/faster tool-calling models can occasionally emit
-            # duplicate calls to the exact same tool with the exact same args in one turn — dedupe
-            # by (name, args) so a real lookup only ever runs once, while still answering every
-            # tool_call_id the model emitted, since the API expects a response for each one
+                return  
+            
             seen_calls = {}
             for call in full.tool_calls:
                 key = (call["name"], json.dumps(call["args"], sort_keys=True))
 
                 if key not in seen_calls:
-                    # a real, visible status event for each *distinct* tool call as it actually
-                    # happens — not cosmetic filler, this is the genuine ReAct loop's tool-call
-                    # step showing up live
                     yield f"data: [calling {call['name']}...]\n\n"
 
                     tool_fn = TOOLS_BY_NAME[call["name"]]
@@ -113,8 +106,8 @@ async def chat(
         stream_response(body.query, current_user.user_id),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",  # tells the client not to wait for/cache a full response before rendering
+            "Cache-Control": "no-cache", 
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # disables buffering on any proxy sitting in front (nginx etc)
+            "X-Accel-Buffering": "no", 
         },
     )
