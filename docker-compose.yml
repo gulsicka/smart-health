@@ -401,8 +401,6 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       DATABASE_URL: postgresql://postgres:password@ai-db:5432/ai_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      PATIENT_KAFKA_TOPIC: patients.events
-      PROVIDER_KAFKA_TOPIC: providers.events
       APPOINTMENT_KAFKA_TOPIC: appointments.events
       AI_KAFKA_TOPIC: ai.events
       PROVIDER_SERVICE_URL: http://provider-service:8000

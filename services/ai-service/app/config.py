@@ -7,8 +7,6 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     DATABASE_URL: str
-    PATIENT_KAFKA_TOPIC: str = "patients.events"
-    PROVIDER_KAFKA_TOPIC: str = "providers.events"
     APPOINTMENT_KAFKA_TOPIC: str = "appointments.events"
     AI_KAFKA_TOPIC: str = "ai.events"
     KAFKA_BOOTSTRAP_SERVERS: str

@@ -32,14 +32,6 @@ class RetrieveResult(BaseModel):
 class RetrieveResponse(BaseModel):
     results: list[RetrieveResult]
 
-class SyncResponse(BaseModel):
-    counts: dict
-
-
-class PdfIngestResponse(BaseModel): 
-    source: str
-    workflow_id: str
-    message: str = "PDF ingestion started"
 
 class PdfExtractRequest(BaseModel):
     source: str
