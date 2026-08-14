@@ -99,6 +99,33 @@ def get_appointments(
     return crud.get_all_appointments(db)
 
 
+@router.get("/patients/{patient_id}/appointments", response_model=list[schemas.Appointment])
+def get_appointments_by_patient(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+):
+    return crud.get_appointments_by_patient(db, patient_id)
+
+
+@router.get("/providers/{provider_id}/appointments", response_model=list[schemas.Appointment])
+def get_appointments_by_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+):
+    return crud.get_appointments_by_provider(db, provider_id)
+
+
+@router.get("/clinics/{clinic_id}/appointments", response_model=list[schemas.Appointment])
+def get_appointments_by_clinic(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+):
+    return crud.get_appointments_by_clinic(db, clinic_id)
+
+
 @router.get("/appointments/{appointment_id}", response_model=schemas.Appointment)
 def get_appointment(
     appointment_id: int,

@@ -12,7 +12,7 @@ import uuid
 
 router = APIRouter()
 
-llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.1-8b-instant", streaming=True)
+llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL, streaming=True)
 
 REPORT_INSTRUCTIONS = {
     "daily_appointments":     "Write a daily appointment summary for the given date. Focus on the appointment list, statuses, and providers.",

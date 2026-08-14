@@ -19,7 +19,6 @@ async def get_service_token():
 
 
 async def make_request(method: str, url: str, **kwargs):
-    """Authenticated HTTP request with automatic token refresh on 401."""
     global _token
     token = await get_service_token()
 

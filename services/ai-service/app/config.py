@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     APPOINTMENT_SERVICE_URL: str
     PATIENT_SERVICE_URL: str
     GROQ_API_KEY: str
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     TEMPORAL_HOST: str
     TEMPORAL_NAMESPACE: str = "default"
     REMINDER_TASK_QUEUE: str = "appointment_reminder_queue"

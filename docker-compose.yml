@@ -173,6 +173,7 @@ services:
       - UPDATE_USER_ROLE_TASK_QUEUE=user_update_queue
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
       - REMINDER_TASK_QUEUE=appointment_reminder_queue
+      - PDF_INGESTION_TASK_QUEUE=pdf_ingestion_queue
       - AI_SERVICE_URL=http://ai-service:8000
     depends_on:
       - temporal
@@ -415,6 +416,7 @@ services:
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
       REMINDER_TASK_QUEUE: appointment_reminder_queue
+      PDF_INGESTION_TASK_QUEUE: pdf_ingestion_queue
 
     depends_on:
       ai-db:

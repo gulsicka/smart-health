@@ -77,7 +77,6 @@ class PdfPageDeleteRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
-    top_k: int = 5
     
 class GenerateCommunicationRequest(BaseModel):
     type: CommunicationType

@@ -189,7 +189,7 @@ Create a `.env` file in the project root:
 SECRET_KEY=your-secret-key-here
 CLUSTER_ID=your-base64-kafka-cluster-uuid
 GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 Generate a Kafka `CLUSTER_ID`:

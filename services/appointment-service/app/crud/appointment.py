@@ -26,6 +26,18 @@ def get_all_appointments(db: Session):
     return db.query(models.Appointment).all()
 
 
+def get_appointments_by_patient(db: Session, patient_id: int):
+    return db.query(models.Appointment).filter(models.Appointment.patient_id == patient_id).all()
+
+
+def get_appointments_by_provider(db: Session, provider_id: int):
+    return db.query(models.Appointment).filter(models.Appointment.provider_id == provider_id).all()
+
+
+def get_appointments_by_clinic(db: Session, clinic_id: int):
+    return db.query(models.Appointment).filter(models.Appointment.clinic_id == clinic_id).all()
+
+
 def get_appointment_by_id(db: Session, appointment_id: int):
     return db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
 
