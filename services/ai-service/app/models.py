@@ -11,5 +11,6 @@ class DocumentChunk(Base):
     source     = Column(String, nullable=False, index=True)
     content    = Column(Text, nullable=False)
     embedding  = Column(Vector(384), nullable=False)  # all-MiniLM-L6-v2 outputs 384 dimensions
-    file_hash  = Column(String, nullable=True)
+    page_hash  = Column(String, nullable=True)
+    page_number = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

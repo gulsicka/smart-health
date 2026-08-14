@@ -23,5 +23,6 @@ class Settings(BaseSettings):
     TEMPORAL_HOST: str
     TEMPORAL_NAMESPACE: str = "default"
     REMINDER_TASK_QUEUE: str = "appointment_reminder_queue"
+    PDF_INGESTION_TASK_QUEUE: str = "pdf_ingestion_queue"
 
 settings = Settings()

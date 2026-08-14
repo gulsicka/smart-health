@@ -19,7 +19,8 @@ HTTPXClientInstrumentor().instrument()
 from workflows.user_creation import UserCreationWorkflow
 from workflows.appointment import AppointmentValidationWorkflow
 from workflows.update_user_role import UpdateUserWorkflow
-from workflows.reminder import AppointmentReminderWorkflow
+from workflows.reminder import SendDayBeforeReminderWorkflow, SendHourBeforeReminderWorkflow
+from workflows.pdf_ingestion import PdfIngestionWorkflow
 
 from activities.user import (
     create_patient_record,
@@ -42,6 +43,7 @@ from activities.appointment import (
 )
 from activities.common import failed_workflow
 from activities.reminder import send_day_before_reminder, send_hour_before_reminder
+from activities.pdf_ingestion import extract_pdf_pages, get_existing_page_hashes, process_pdf_page, delete_pdf_page
 
 TEMPORAL_HOST = settings.TEMPORAL_HOST
 USER_TASK_QUEUE = settings.USER_TASK_QUEUE
@@ -100,8 +102,16 @@ async def main():
     reminder_worker = Worker(
         client,
         task_queue=settings.REMINDER_TASK_QUEUE,
-        workflows=[AppointmentReminderWorkflow],
+        workflows=[SendDayBeforeReminderWorkflow, SendHourBeforeReminderWorkflow],
         activities=[send_day_before_reminder, send_hour_before_reminder],
+        interceptors=[TracingInterceptor()],
+    )
+
+    pdf_ingestion_worker = Worker(
+        client,
+        task_queue=settings.PDF_INGESTION_TASK_QUEUE,
+        workflows=[PdfIngestionWorkflow],
+        activities=[extract_pdf_pages, get_existing_page_hashes, process_pdf_page, delete_pdf_page],
         interceptors=[TracingInterceptor()],
     )
 
@@ -110,6 +120,7 @@ async def main():
         appointment_validation_worker.run(),
         update_user_role_worker.run(),
         reminder_worker.run(),
+        pdf_ingestion_worker.run(),
     )
 
 

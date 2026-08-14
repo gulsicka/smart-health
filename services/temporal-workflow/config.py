@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     APPOINTMENT_TASK_QUEUE: str
     RABBITMQ_URL: str
     REMINDER_TASK_QUEUE: str = "appointment_reminder_queue"
+    PDF_INGESTION_TASK_QUEUE: str = "pdf_ingestion_queue"
     AI_SERVICE_URL: str
 
 

@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from app import schemas, auth, crud
 from app.database import get_db
 from app.enums import RoleName
+from app.temporal_client import get_temporal_client
+from app.config import settings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import fitz   # pymupdf
-import hashlib
+import base64
+import uuid
 from app.clients import provider as provider_client, patients as patients_client
 from app.clients import auth as auth_client
 from app.clients import appointment as appointment_client
@@ -39,28 +41,27 @@ def ingest(
 
 
 @router.post("/ingest/pdf", response_model=schemas.IngestResponse)
-def ingest_pdf(
+async def ingest_pdf(
     source: str = Form(...),
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
 ):
     pdf_bytes = file.file.read()
-    file_hash = hashlib.md5(pdf_bytes).hexdigest()
+    pdf_base64 = base64.b64encode(pdf_bytes).decode()
 
-    existing = crud.get_existing_chunk(db, source)
-    if existing and existing.file_hash == file_hash:
-        return schemas.IngestResponse(source=source, chunks_stored=0, message="File unchanged, skipped re-ingestion")
-
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    text = "".join(page.get_text() for page in doc)
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    chunks = splitter.split_text(text)
-
-    crud.delete_chunks(db, source)
-    crud.ingest_chunks(db, source, chunks, file_hash=file_hash)
-    return schemas.IngestResponse(source=source, chunks_stored=len(chunks))
+    client = await get_temporal_client()
+    workflow_id = f"pdf-ingestion-{source}-{uuid.uuid4()}"
+    handle = await client.start_workflow(
+        "PdfIngestionWorkflow",
+        {"source": source, "pdf_base64": pdf_base64},
+        id=workflow_id,
+        task_queue=settings.PDF_INGESTION_TASK_QUEUE,
+    )
+    result = await handle.result()
+    message = "Ingestion successful"
+    if result["failed_pages"]:
+        message = f"Ingestion completed with errors on pages: {result['failed_pages']}"
+    return schemas.IngestResponse(source=source, chunks_stored=result["chunks_stored"], message=message)
 
 
 @router.post("/ingest/sync", response_model=schemas.SyncResponse)

@@ -21,3 +21,4 @@ langchain-groq
 groq
 opentelemetry-instrumentation-langchain
 temporalio
+pymupdf4llm

@@ -55,3 +55,23 @@ class AppointmentReminderInput:
     date: str
     start_time: str
     end_time: str
+
+
+@dataclass
+class PdfIngestionInput:
+    source: str
+    pdf_base64: str
+
+
+@dataclass
+class PdfPageInput:
+    source: str
+    page_number: int
+    text: str
+    page_hash: str
+
+
+@dataclass
+class PdfPageDeleteInput:
+    source: str
+    page_number: int

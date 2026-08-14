@@ -8,7 +8,7 @@ async def get_service_token():
     global _token
     if _token:
         return _token
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{settings.AUTH_SERVICE_URL}/login",
             json={"email": settings.SYSTEM_EMAIL, "password": settings.SYSTEM_PASSWORD},
@@ -23,7 +23,7 @@ async def make_request(method: str, url: str, **kwargs):
     global _token
     token = await get_service_token()
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await getattr(client, method)(
             url,
             headers={"Authorization": f"Bearer {token}"},

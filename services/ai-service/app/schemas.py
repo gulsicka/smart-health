@@ -35,6 +35,46 @@ class RetrieveResponse(BaseModel):
 class SyncResponse(BaseModel):
     counts: dict
 
+
+class PdfIngestResponse(BaseModel): 
+    source: str
+    workflow_id: str
+    message: str = "PDF ingestion started"
+
+class PdfExtractRequest(BaseModel):
+    source: str
+    pdf_base64: str
+
+
+class PdfPage(BaseModel):
+    page_number: int
+    text: str
+    page_hash: str
+
+
+class PdfExtractResponse(BaseModel):
+    pages: list[PdfPage]
+
+
+class PageHashesResponse(BaseModel):
+    page_hashes: dict[int, str]
+
+
+class PdfPageRequest(BaseModel):
+    source: str
+    page_number: int
+    text: str
+    page_hash: str
+
+
+class PdfPageResponse(BaseModel):
+    chunks_stored: int
+
+
+class PdfPageDeleteRequest(BaseModel):
+    source: str
+    page_number: int
+
 class ChatRequest(BaseModel):
     query: str
     top_k: int = 5

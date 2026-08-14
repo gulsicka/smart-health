@@ -1,8 +1,10 @@
 from aiokafka import AIOKafkaConsumer
-from temporalio.client import Client
+from temporalio.client import Schedule, ScheduleActionStartWorkflow, ScheduleSpec, ScheduleCalendarSpec, ScheduleState, ScheduleRange
+from datetime import datetime, timedelta, timezone
 import json
 from app.config import settings
 from app.database import SessionLocal
+from app.temporal_client import get_temporal_client
 from app import crud
 from app.utils.event_text import (
     patient_full_text,
@@ -16,14 +18,36 @@ from app.clients import provider as provider_client, patients as patients_client
 from app.clients import auth as auth_client
 
 consumer: AIOKafkaConsumer | None = None
-_temporal_client: Client | None = None
 
 
-async def get_temporal_client() -> Client:
-    global _temporal_client
-    if _temporal_client is None:
-        _temporal_client = await Client.connect(settings.TEMPORAL_HOST, namespace=settings.TEMPORAL_NAMESPACE)
-    return _temporal_client
+def reminder_schedule_id(kind: str, appointment_id) -> str:
+    return f"appointment-reminder-{kind}-{appointment_id}"
+
+
+async def create_reminder_schedule(client, workflow_name: str, schedule_id: str, data: dict, fire_at: datetime):
+    await client.create_schedule(
+        schedule_id,
+        Schedule(
+            action=ScheduleActionStartWorkflow(
+                workflow_name,
+                data,
+                id=schedule_id,
+                task_queue=settings.REMINDER_TASK_QUEUE,
+            ),
+            spec=ScheduleSpec(
+                calendars=[
+                    ScheduleCalendarSpec(
+                        year=[ScheduleRange(fire_at.year)],
+                        month=[ScheduleRange(fire_at.month)],
+                        day_of_month=[ScheduleRange(fire_at.day)],
+                        hour=[ScheduleRange(fire_at.hour)],
+                        minute=[ScheduleRange(fire_at.minute)],
+                    )
+                ]
+            ),
+            state=ScheduleState(limited_actions=True, remaining_actions=1),
+        ),
+    )
 
 
 def get_source(event: dict) -> str | None:
@@ -134,20 +158,35 @@ async def consume_events():
 
                 if event.get("status") == "requested":  # scheduling reminders for requested appointments only
                     client = await get_temporal_client()
-                    await client.start_workflow(
-                        "AppointmentReminderWorkflow",
-                        {
-                            "appointment_id": event.get("appointment_id"),
-                            "patient_id": event.get("patient_id"),
-                            "provider_id": event.get("provider_id"),
-                            "clinic_id": event.get("clinic_id"),
-                            "date": event.get("date"),
-                            "start_time": event.get("start_time"),
-                            "end_time": event.get("end_time"),
-                        },
-                        id=f"appointment-reminder-{event.get('appointment_id')}",
-                        task_queue=settings.REMINDER_TASK_QUEUE,
-                    )
+                    appointment_id = event.get("appointment_id")
+                    reminder_data = {
+                        "appointment_id": appointment_id,
+                        "patient_id": event.get("patient_id"),
+                        "provider_id": event.get("provider_id"),
+                        "clinic_id": event.get("clinic_id"),
+                        "date": event.get("date"),
+                        "start_time": event.get("start_time"),
+                        "end_time": event.get("end_time"),
+                    }
+
+                    date_parts = [int(x) for x in event["date"].split("-")]
+                    time_parts = [int(x) for x in event["start_time"].split(":")]
+                    appt_datetime = datetime(date_parts[0], date_parts[1], date_parts[2], time_parts[0], time_parts[1], tzinfo=timezone.utc)
+                    now = datetime.now(timezone.utc)
+
+                    day_before = appt_datetime - timedelta(days=1)
+                    if day_before > now:  # skip if already in the past
+                        await create_reminder_schedule(
+                            client, "SendDayBeforeReminderWorkflow",
+                            reminder_schedule_id("day-before", appointment_id), reminder_data, day_before,
+                        )
+
+                    hour_before = appt_datetime - timedelta(hours=1)  
+                    if hour_before > now:
+                        await create_reminder_schedule(
+                            client, "SendHourBeforeReminderWorkflow",
+                            reminder_schedule_id("hour-before", appointment_id), reminder_data, hour_before,
+                        )
 
             elif event_type == "appointment.status_updated":
                 patient_name, provider_name, _, clinic_data = await fetch_appointment_context(event)
@@ -160,13 +199,14 @@ async def consume_events():
                 crud.delete_chunks(db, source)
                 crud.ingest_chunks(db, source, [text])
 
-                if event.get("status") == "cancelled":  # cancel reminder workflow
-                    try:
-                        client = await get_temporal_client()
-                        handle = client.get_workflow_handle(f"appointment-reminder-{event.get('appointment_id')}")
-                        await handle.signal("cancel")
-                    except Exception:
-                        pass
+                if event.get("status") == "cancelled":
+                    client = await get_temporal_client()
+                    appointment_id = event.get("appointment_id")
+                    for kind in ("day-before", "hour-before"):
+                        try:
+                            await client.get_schedule_handle(reminder_schedule_id(kind, appointment_id)).delete()
+                        except Exception:
+                            pass  #  hour_before already past at booking time
 
         finally:
             db.close()
