@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from app import schemas, auth, crud
-from app.database import get_db
+from app import schemas, auth
 from app.enums import RoleName, CommunicationType
 from app.config import settings
 from langchain_groq import ChatGroq
-from app.utils.helpers import build_context
+from app.agent import run_agent
 from app import kafka_producer
 from datetime import datetime
 import uuid
@@ -15,17 +13,25 @@ router = APIRouter()
 llm = ChatGroq(
     api_key=settings.GROQ_API_KEY,
     model=settings.GROQ_MODEL,
-    streaming=False,
+    temperature=0,
+)
+
+ID_RESOLUTION_NOTE = (
+    " Any record you look up may contain IDs referencing other entities — a department_id, "
+    "user_id, clinic_id, etc — never show a raw ID to the reader as if it were an answer. "
+    "Always resolve it first: call get_department for a department_id, get_user for a user_id "
+    "(name/email), get_clinic for a clinic_id, and so on, before including that information."
 )
 
 PROMPTS = {
-    CommunicationType.follow_up: "You are a healthcare assistant. Write a post-appointment follow-up message for a patient. Focus on recovery tips, next steps after the visit, and encouraging them to book a follow-up appointment if needed. Do not mention upcoming or future appointments.",
-    CommunicationType.service_recommendation: "You are a healthcare assistant. Based on the context below, recommend the most suitable healthcare services or specialists for the patient. Be specific and helpful.",
-    CommunicationType.preventive_care: "You are a healthcare assistant. Write a preventive care suggestion message for a patient based on the context below. Focus on actionable health tips and screenings relevant to their profile.",
-    CommunicationType.operational_assistance: "You are a healthcare operations assistant. Based on the context below, provide a clear and concise operational assistance response suitable for healthcare staff.",
+    CommunicationType.follow_up: "You are a healthcare assistant. Use your tools to look up the real patient this message is for — never invent a name or detail. Write a post-appointment follow-up message for that patient. Focus on recovery tips, next steps after the visit, and encouraging them to book a follow-up appointment if needed. Do not mention upcoming or future appointments." + ID_RESOLUTION_NOTE,
+    CommunicationType.service_recommendation: "You are a healthcare assistant. Use your tools to look up the real patient or entity this is about — never invent a name or detail. Recommend the most suitable healthcare services or specialists for them. Be specific and helpful." + ID_RESOLUTION_NOTE,
+    CommunicationType.preventive_care: "You are a healthcare assistant. Use your tools to look up the real patient this is for — never invent a name or detail. Write a preventive care suggestion message based on their actual profile. Focus on actionable health tips and screenings relevant to them." + ID_RESOLUTION_NOTE,
+    CommunicationType.operational_assistance: "You are a healthcare operations assistant. Use your tools to look up any real entity referenced in the request — never invent a name or detail. Provide a clear and concise operational assistance response suitable for healthcare staff." + ID_RESOLUTION_NOTE,
 }
 
-async def publish_communication_event(user_id: int, communication_type: str, status: str):#feeds "generated communication usage" analytics, broken down by type
+
+async def publish_communication_event(user_id: int, communication_type: str, status: str): 
     await kafka_producer.publish_event(
         event={
             "event_type": "ai.communication",
@@ -39,38 +45,24 @@ async def publish_communication_event(user_id: int, communication_type: str, sta
     )
 
 
-def get_response(body: schemas.GenerateCommunicationRequest, db: Session):
-    prompt = PROMPTS[body.type]
-
+def build_query(body: schemas.GenerateCommunicationRequest) -> str:
     if body.patient_id:
-        source_prefix = f"patient-{body.patient_id}"
-    elif body.provider_id:
-        source_prefix = f"provider-{body.provider_id}"
-    elif body.clinic_id:
-        source_prefix = f"clinic-{body.clinic_id}"
-    else:
-        source_prefix = None
+        return f"This message is for patient ID {body.patient_id}."
+    if body.provider_id:
+        return f"This message is for provider ID {body.provider_id}."
+    if body.clinic_id:
+        return f"This message is for clinic ID {body.clinic_id}."
+    return "No specific patient, provider, or clinic was specified."
 
-
-    results = crud.retrieve_chunks(db, body.type.value, body.top_k, source_prefix=source_prefix)
-    chunks = [row for row, score in results]
-
-    context = build_context(chunks)
-    response = llm.invoke([
-        ("system", prompt),
-        ("human", context),
-        ])
-    return response.content
 
 @router.post("/generate/communication")
 async def generate_communication(
     body: schemas.GenerateCommunicationRequest,
-    db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     status = "answered"
     try:
-        content = get_response(body, db)
+        content = await run_agent(llm, PROMPTS[body.type], build_query(body))
     except Exception:
         status = "failed"
         raise

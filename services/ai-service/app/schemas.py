@@ -80,11 +80,10 @@ class ChatRequest(BaseModel):
     
 class GenerateCommunicationRequest(BaseModel):
     type: CommunicationType
-    top_k: int = 5
     patient_id: int | None = None
     provider_id: int | None = None
     clinic_id: int | None = None
-    
+
 class GenerateCommunicationResponse(BaseModel):
     content: str
 
