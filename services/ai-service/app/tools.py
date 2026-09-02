@@ -61,8 +61,6 @@ async def get_appointments_by_clinic(clinic_id: int) -> list:
 
 
 async def _report_maps():
-    # bulk fetch, used only inside the report stat tools below — never exposed to the LLM
-    # directly as raw data, only as the pre-computed numbers report_text.py builds from it
     all_users = await auth_client.get_all_users()
     user_map = {u["id"]: u for u in all_users}
     all_depts = await provider_client.get_all_departments()

@@ -59,29 +59,39 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
   GenAI Layer — ai-service :8007
   +-----------------------------------------------------------------------+
   |                                                                       |
-  |  REST pull (POST /ingest/sync — rebuilds the whole knowledge base):   |
-  |    ai-svc --GET /users----------------> auth-svc                      |
-  |    ai-svc --GET /patients-------------> patient-svc                   |
-  |    ai-svc --GET /providers, /clinics,-> provider-svc                  |
-  |             /departments                                              |
-  |    ai-svc --GET /appointments---------> appt-svc                      |
-  |         |                                                             |
-  |         v  embed (all-MiniLM-L6-v2), then store                       |
-  |    ai-db (pgvector): entity chunks + precomputed report stat chunks   |
+  |  Agentic tool-calling (/chat, /generate/communication,                |
+  |  /generate/report — one shared ReAct loop, app/agent.py):             |
+  |    ai-svc --LLM decides which tool(s) to call, live, per request-->   |
+  |      get_patient/provider/clinic/department/user --> patient-,       |
+  |                                             provider-, auth-svc       |
+  |      get_appointment(s)_by_* ------------------------> appt-svc       |
+  |      get_daily_appointment_stats, get_department_utilization_stats,  |
+  |        get_patient_engagement_stats, get_executive_snapshot_stats     |
+  |        (fetch live data, compute deterministically in Python)         |
+  |      search_documents ---------------> ai-db (pgvector, PDFs only)    |
+  |    no bulk/raw entity dump is ever exposed to the LLM as a tool       |
   |                                                                       |
-  |  Kafka consume (incremental chunk updates, no full re-sync needed):   |
-  |    patients.events, providers.events, appointments.events --> ai-svc  |
+  |  Document ingestion (PDF only — the only thing pgvector stores):      |
+  |    ai-svc --POST /ingest/pdf--> starts PdfIngestionWorkflow           |
+  |      (temporal-workflow) --one activity per page--> ai-svc            |
+  |      (hash-diff unchanged pages, replace changed pages,               |
+  |       clean up orphan pages) --embed (all-MiniLM-L6-v2)--> ai-db      |
   |                                                                       |
   |  Kafka publish (AI usage analytics):                                  |
   |    ai-svc --[ai.events: ai.chat / ai.report / ai.communication]-->    |
   |                              analytics-svc  (GET /analytics/ai)       |
   |                                                                       |
-  |  Temporal (reminder generation):                                      |
-  |    temporal-workflow (AppointmentReminderWorkflow)                    |
-  |      --POST /generate/reminder--> ai-svc --> Groq LLM                 |
+  |  Temporal Schedules (reminder triggering):                            |
+  |    appt-svc --[appointments.events]--> ai-svc kafka_consumer          |
+  |      --create_schedule (day-before / hour-before, one-shot)-->        |
+  |      Temporal --fires at scheduled time--> SendDayBeforeReminder /    |
+  |      SendHourBeforeReminderWorkflow --POST /generate/reminder-->      |
+  |      ai-svc --> Groq LLM                                              |
+  |      (both schedules cancelled if the appointment is cancelled)       |
   |                                                                       |
   |  External LLM:                                                        |
-  |    ai-svc --LangChain (ChatGroq)--> Groq API (llama-3.1-8b-instant)   |
+  |    ai-svc --LangChain (ChatGroq)--> Groq API (model set via           |
+  |                                      GROQ_MODEL env var)              |
   |                                                                       |
   +-----------------------------------------------------------------------+
 
@@ -148,7 +158,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | appointment-service | 8004 | Booking, status updates, Kafka event publishing |
 | analytics-service | 8005 | Kafka consumer, Redis counters, TimescaleDB event store, analytics API |
 | billing-service | 8006 | Kafka consumer, fixed-fee invoice lifecycle (pending → paid / refunded), per-appointment billing |
-| ai-service | 8007 | GenAI layer — RAG chat, report/summary generation, AI-drafted communications, pgvector knowledge base |
+| ai-service | 8007 | GenAI layer — agentic tool-calling chat, live report generation, AI-drafted communications, Temporal-driven PDF ingestion, pgvector document store |
 | notification-service | — | Celery worker, persists notifications to Postgres |
 | temporal-workflow | — | Temporal worker for user creation + appointment validation workflows |
 
@@ -168,7 +178,7 @@ A microservices-based healthcare platform built with Python/FastAPI. Handles use
 | Time-Series Analytics DB | TimescaleDB (PostgreSQL extension) |
 | Vector Store | pgvector (PostgreSQL extension) |
 | Embeddings | sentence-transformers (`all-MiniLM-L6-v2`) |
-| LLM | Groq API (`llama-3.1-8b-instant`) via LangChain |
+| LLM | Groq API (model configurable via `GROQ_MODEL`, currently `openai/gpt-oss-20b`) via LangChain, tool-calling agent |
 | Monitoring | Prometheus + Grafana |
 | Containerization | Docker + Docker Compose |
 
@@ -295,14 +305,13 @@ All AI endpoints are admin-only.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/chat` | Natural-language Q&A over platform data, streamed as SSE (hybrid vector + full-text retrieval) |
-| POST | `/generate/report` | Generate a report: `daily_appointments`, `department_utilization`, `patient_engagement`, `executive_snapshot` |
-| POST | `/generate/communication` | Draft a `follow_up`, `service_recommendation`, `preventive_care`, or `operational_assistance` message |
-| POST | `/generate/reminder` | Draft an appointment reminder (`day_before` / `hour_before`) — called by the Temporal reminder workflow |
-| POST | `/ingest/sync` | Rebuild the knowledge base from all services + recompute report stat chunks |
+| POST | `/chat` | Natural-language Q&A over platform data — agentic tool-calling loop, streamed live as SSE |
+| POST | `/generate/report` | Generate a report (`daily_appointments`, `department_utilization`, `patient_engagement`, `executive_snapshot`) — agent calls a dedicated stats tool that computes live numbers, then narrates |
+| POST | `/generate/communication` | Draft a `follow_up`, `service_recommendation`, `preventive_care`, or `operational_assistance` message — agent looks up the live patient/provider/clinic record via tools |
+| POST | `/generate/reminder` | Draft an appointment reminder (`day_before` / `hour_before`) — called by the Temporal-Schedule-triggered reminder workflow |
 | POST | `/ingest` | Ingest arbitrary raw text under a given source key |
-| POST | `/ingest/pdf` | Ingest a PDF (skipped if the file hash is unchanged) |
-| POST | `/retrieve` | Debug endpoint — return the raw retrieved chunks and scores for a query |
+| POST | `/ingest/pdf` | Ingest a PDF via a Temporal workflow (`PdfIngestionWorkflow`) — one activity per page, hash-diffed so unchanged pages are skipped |
+| POST | `/retrieve` | Debug endpoint — return the raw retrieved PDF chunks and scores for a query |
 
 ---
 
@@ -324,9 +333,15 @@ All AI endpoints are admin-only.
 
 **CRUD package pattern** — Each service uses a `crud/` package with one file per model, re-exported via `__init__.py`. Router imports don't change when logic is split.
 
-**LLM for language, code for math** — Report generation never asks the LLM to compute a number. Every total, count, and percentage is calculated deterministically in Python (`utils/report_text.py`) during `/ingest/sync` and stored as a pure-data chunk in pgvector; at request time the LLM only narrates from those pre-verified figures. This came out of real failures — given a raw appointment list the model miscounted totals (mistaking a database ID for a count) and invented providers that didn't exist. Prompt framing and section labels are added only when the request is assembled, never persisted into the vector store, so the stored chunks stay reusable data rather than frozen prompts.
+**LLM for language, code for math** — No GenAI endpoint ever asks the LLM to compute a number. Every total, count, and percentage is calculated deterministically in Python (`utils/report_text.py`), exposed to the agent as a set of report-stats tools (`get_daily_appointment_stats`, `get_department_utilization_stats`, `get_patient_engagement_stats`, `get_executive_snapshot_stats`) that fetch live data from the owning services and compute the numbers at request time — nothing is precomputed or cached. This came out of real failures — given a raw appointment list the model miscounted totals (mistaking a database ID for a count) and invented providers that didn't exist. The system prompt requires the agent to call the relevant stats tool first and use its numbers exactly as returned; the LLM only narrates.
 
-**Hybrid retrieval instead of query parsing** — Embeddings capture meaning, but numbers carry almost no meaning to an embedding model: `patient-36` and `patient-43` land nearly on top of each other in vector space, so pure similarity search could not reliably answer "how many appointments does patient 36 have?". Rather than regex-parsing entity IDs out of the query (brittle — it only works for phrasings the regex anticipates), `retrieve_chunks()` runs two searches and fuses them: pgvector cosine similarity for meaning, and Postgres full-text search (`to_tsvector`/`ts_rank`) for exact tokens like IDs and names. Results are merged with Reciprocal Rank Fusion, which compares only each chunk's *position* in each list — so the incompatible score scales are never compared directly. Report stat chunks are excluded from retrieval entirely, since their keyword-dense text falsely outranked real records.
+**Agentic tool-calling instead of query parsing** — `/chat`, `/generate/communication`, and `/generate/report` share one ReAct tool-calling loop (`app/agent.py`). Rather than regex-parsing entity IDs out of a query or pre-fetching context by hand (both brittle and inconsistent across endpoints), a scoped tool library (`app/tools.py`) is bound to the LLM and it decides which tool(s) to call — single-entity lookups only (`get_patient`, `get_provider`, `get_appointment`, etc.), never a bulk/raw dump. Every round of the loop is streamed live over SSE (including visible `[calling get_patient...]` status events), not just the final answer, so the tool-calling is genuinely observable, not simulated. Any ID a tool surfaces (`department_id`, `user_id`, `clinic_id`) must be resolved via the matching tool before being shown to the user — enforced explicitly in the system prompt.
+
+**pgvector scoped to documents only** — Early on, pgvector stored chunks for every entity (patients, providers, appointments) plus precomputed report stats, kept in sync via a `/ingest/sync` rebuild and incremental Kafka consumers. That meant every answer could be reading data that was stale as of the last sync. pgvector now stores only ingested PDF/document content; all entity and report data is fetched live via the tool-calling agent instead, so there's no staleness window and no sync step to remember to run.
+
+**Temporal workflow for PDF ingestion** — Parsing and embedding a PDF used to run inline inside the `/ingest/pdf` request with no retry and no isolation — one bad page failed the whole upload. It's now a Temporal workflow (`PdfIngestionWorkflow`) with one activity per page: each page is hashed and diffed against what's stored (unchanged pages are skipped, changed pages are replaced in a single transaction), a failed page is retried per Temporal's activity retry policy without failing the rest of the upload, and pages dropped from a shorter re-upload are cleaned up (orphan-page deletion).
+
+**Temporal Schedules instead of sleeping workflows for reminders** — Appointment reminders originally ran as a long-lived workflow that called `workflow.sleep()` until the reminder time, which isn't the idiomatic Temporal pattern for "run this once in the future." Reminders are now Temporal Schedules: on `appointment.created`, `ai-service`'s Kafka consumer creates two one-shot schedules (`SendDayBeforeReminderWorkflow`, `SendHourBeforeReminderWorkflow`) via `ScheduleActionStartWorkflow` + `ScheduleCalendarSpec`, each with `remaining_actions=1`. Both schedules are deleted if the appointment is later cancelled.
 
 **Event-driven billing** — billing-service has no HTTP calls from appointment-service; it is a pure Kafka consumer on `appointments.events` (the same topic analytics-service uses). On `appointment.created` it creates a pending invoice for a fixed $100 consultation fee. On `appointment.status_updated`, it marks the invoice paid (completed) or refunded (cancelled / no_show). Kafka event deduplication uses Redis `SET NX` on `billing:event:{event_id}` with a 24h TTL, with a DB-level unique constraint on `appointment_id` as a second safety net. The service exposes read-only REST endpoints for querying invoices by ID, appointment, or patient.
 
@@ -392,28 +407,19 @@ appointment.status_updated:
 
 ### ai-db — `document_chunks`
 
+pgvector now stores only ingested PDF/document content — no entity or report data. Entity records are fetched live via tool calls, and report statistics are computed live per request (see Key Design Decisions above).
+
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | integer | PK, auto-increment | Chunk primary key |
-| `source` | varchar | NOT NULL, indexed | Logical key identifying what the chunk describes (see below) |
-| `content` | text | NOT NULL | The chunk text — plain facts only, never prompt framing |
+| `source` | varchar | NOT NULL, indexed | The ingested document's source label (e.g. a handbook name) |
+| `content` | text | NOT NULL | The chunk text (markdown, via PyMuPDF4LLM) |
 | `embedding` | vector(384) | NOT NULL | `all-MiniLM-L6-v2` embedding of `content` |
-| `file_hash` | varchar | nullable | MD5 of the source PDF, used to skip unchanged re-ingestion |
+| `page_hash` | varchar | nullable | Hash of this page's extracted text, used to skip re-embedding unchanged pages on re-upload |
+| `page_number` | integer | nullable | Which page of the source PDF this chunk came from |
 | `created_at` | timestamp | default now() | Record creation time |
 
-**`source` key formats** — the source is a deterministic key, so a chunk can be fetched by exact lookup as well as by search:
-
-```
-provider-{id}                 department-{id}
-patient-{id}                  clinic-{id}
-patient-{p}-provider-{q}-clinic-{r}-appointment-{s}     (compound, one per appointment)
-
-report-daily_appointments-{YYYY-MM-DD}            report-department_utilization
-report-daily_appointments-{YYYY-MM-DD}-records    report-patient_engagement
-report-executive_snapshot-{YYYY-MM-DD}
-```
-
-`report-*` chunks are precomputed statistics consumed only by `/generate/report` via exact-key lookup, and are excluded from `/chat` retrieval.
+Ingestion hashes and diffs per page rather than per file: unchanged pages are skipped, changed pages have their chunks replaced in one transaction (`replace_page_chunks`), and pages present in the DB but absent from a shorter re-upload are deleted (orphan-page cleanup). Retrieval (`search_documents` tool, used by `/chat`, `/generate/communication`, `/generate/report`, and the `/retrieve` debug endpoint) is plain pgvector cosine-similarity search over these chunks.
 
 ### analytics-db — `ai_interaction_events`
 

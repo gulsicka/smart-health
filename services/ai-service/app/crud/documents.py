@@ -43,18 +43,10 @@ def replace_page_chunks(db: Session, source: str, page_number: int, chunks: list
     db.commit()
 
 
-def retrieve_chunks(db, query, top_k, source_prefix: str = None):
+def retrieve_chunks(db, query, top_k):
     query_vector = embedder.embed(query)
     distance = models.DocumentChunk.embedding.cosine_distance(query_vector).label("score")
     q = db.query(models.DocumentChunk, distance)
-    if source_prefix:
-        source = models.DocumentChunk.source
-        q = q.filter(
-            (source == source_prefix)
-            | source.startswith(source_prefix + "-")
-            | source.endswith("-" + source_prefix)
-            | source.contains("-" + source_prefix + "-")
-        )
     return q.order_by(distance).limit(top_k).all()
 
 def get_page_hashes(db, source):

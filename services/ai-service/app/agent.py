@@ -2,7 +2,7 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from app.tools import TOOLS, TOOLS_BY_NAME
 
-MAX_TOOL_ITERATIONS = 5  # caps how many rounds of tool calls one request can trigger
+MAX_TOOL_ITERATIONS = 5 
 
 
 async def _run_agent_events(llm, system_prompt: str, query: str):
