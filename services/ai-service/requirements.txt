@@ -5,7 +5,7 @@ python-jose[cryptography]
 python-multipart
 sentence-transformers
 sqlalchemy
-psycopg2-binary
+psycopg[binary]
 pgvector
 langchain
 langchain-text-splitters

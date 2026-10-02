@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.routers import user, role
 from app import kafka_producer, kafka_consumer
+from app.seed import seed_admin
 from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -19,6 +20,13 @@ trace.set_tracer_provider(otel_provider)
 
 @asynccontextmanager
 async def lifespan(app):
+    # ensures a fresh deployment always has roles and a default admin
+    # account (admin@smarthealth.com / the SYSTEM_PASSWORD setting) to log
+    # in with, without requiring a manual seed step. No-op if already seeded.
+    try:
+        seed_admin()
+    except Exception as e:
+        print(f"Admin seed skipped: {e}")
     await kafka_producer.start_producer()
     await kafka_consumer.start_consumer()
     asyncio.create_task(kafka_consumer.consume_events())

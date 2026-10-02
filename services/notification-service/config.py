@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
     DATABASE_URL: str
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
 
 
 settings = Settings()

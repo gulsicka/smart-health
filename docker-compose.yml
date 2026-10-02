@@ -3,7 +3,7 @@ services:
     build: ./services/auth-service
     ports: ["8001:8000"]
     environment:
-      DATABASE_URL: postgresql://postgres:password@auth-db:5432/auth_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@auth-db:5432/auth_db
       SECRET_KEY: ${SECRET_KEY}
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
@@ -14,6 +14,8 @@ services:
       KAFKA_TOPIC: users.events
       PATIENT_KAFKA_TOPIC: patients.events
       PROVIDER_KAFKA_TOPIC: providers.events
+      SYSTEM_EMAIL: admin@smarthealth.com
+      SYSTEM_PASSWORD: admin
     depends_on:
       auth-db:
         condition: service_healthy
@@ -38,7 +40,7 @@ services:
     build: ./services/patient-service
     ports: ["8002:8000"]
     environment:
-      DATABASE_URL: postgresql://postgres:password@patient-db:5432/patient_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@patient-db:5432/patient_db
       SECRET_KEY: ${SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: patients.events
@@ -66,7 +68,7 @@ services:
     build: ./services/provider-service
     ports: ["8003:8000"]
     environment:
-      DATABASE_URL: postgresql://postgres:password@provider-db:5432/provider_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@provider-db:5432/provider_db
       SECRET_KEY: ${SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: providers.events
@@ -95,7 +97,7 @@ services:
     build: ./services/appointment-service
     ports: ["8004:8000"]
     environment:
-      DATABASE_URL: postgresql://postgres:password@appointment-db:5432/appointment_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@appointment-db:5432/appointment_db
       SECRET_KEY: ${SECRET_KEY}
       TEMPORAL_HOST: temporal:7233
       TEMPORAL_NAMESPACE: default
@@ -242,7 +244,7 @@ services:
       AI_KAFKA_TOPIC: ai.events
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
-      DATABASE_URL: postgresql://postgres:password@analytics-db:5432/analytics_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@analytics-db:5432/analytics_db
     depends_on:
       kafka:
         condition: service_healthy
@@ -272,7 +274,8 @@ services:
     environment:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//   # RabbitMQ connection string
       CELERY_RESULT_BACKEND: redis://redis:6379/0             # Redis stores task results
-      DATABASE_URL: postgresql://postgres:password@notification-db:5432/notification_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@notification-db:5432/notification_db
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -280,6 +283,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  # same image/codebase as notification-service, run as a FastAPI process instead of
+  # a Celery worker, so notifications written by the worker can be read back over HTTP
+  notification-api:
+    build: ./services/notification-service
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8008:8000"]
+    environment:
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://postgres:password@notification-db:5432/notification_db
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      notification-db:
+        condition: service_healthy
 
   notification-db:
     image: postgres
@@ -354,7 +372,7 @@ services:
     build: ./services/billing-service
     ports: ["8006:8000"]
     environment:
-      DATABASE_URL: postgresql://postgres:password@billing-db:5432/billing_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@billing-db:5432/billing_db
       SECRET_KEY: ${SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: appointments.events
@@ -401,7 +419,7 @@ services:
     ports: ["8007:8000"]
     environment:
       SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: postgresql://postgres:password@ai-db:5432/ai_db
+      DATABASE_URL: postgresql+psycopg://postgres:password@ai-db:5432/ai_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       APPOINTMENT_KAFKA_TOPIC: appointments.events
       AI_KAFKA_TOPIC: ai.events

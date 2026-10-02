@@ -26,7 +26,7 @@ VALID_TRANSITIONS = {
 
 ROLE_ALLOWED_TRANSITIONS = {
     S.CONFIRMED:   {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
-    S.CHECKED_IN:  {RoleName.ADMIN, RoleName.FD_STAFF},
+    S.CHECKED_IN:  {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
     S.IN_PROGRESS: {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
     S.COMPLETED:   {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
     S.NO_SHOW:     {RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER},
@@ -38,7 +38,7 @@ ROLE_ALLOWED_TRANSITIONS = {
 @router.post("/appointments")
 async def create_appointment(
     appointment: schemas.AppointmentCreate,
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     workflow_id = workflow_id_for(
         f"{appointment.patient_id}-{appointment.provider_id}-{appointment.date}-{appointment.start_time}"
@@ -103,7 +103,7 @@ def get_appointments(
 def get_appointments_by_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)),
 ):
     return crud.get_appointments_by_patient(db, patient_id)
 
@@ -112,7 +112,7 @@ def get_appointments_by_patient(
 def get_appointments_by_provider(
     provider_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)),
 ):
     return crud.get_appointments_by_provider(db, provider_id)
 

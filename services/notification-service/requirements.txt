@@ -1,5 +1,8 @@
 celery
 sqlalchemy
-psycopg2-binary
+psycopg[binary]
 pydantic-settings
 redis
+fastapi
+uvicorn
+python-jose[cryptography]

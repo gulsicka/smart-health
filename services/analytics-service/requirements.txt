@@ -11,4 +11,4 @@ opentelemetry-instrumentation-fastapi
 opentelemetry-instrumentation-sqlalchemy
 alembic
 sqlalchemy
-psycopg2-binary
+psycopg[binary]

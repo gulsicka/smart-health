@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     KAFKA_TOPIC: str = "users.events"
     PATIENT_KAFKA_TOPIC: str = "patients.events"
     PROVIDER_KAFKA_TOPIC: str = "providers.events"
+    SYSTEM_EMAIL: str = "admin@smarthealth.com"
+    SYSTEM_PASSWORD: str = "admin"
 
 
 settings = Settings()
