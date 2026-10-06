@@ -15,7 +15,7 @@ from app.redis import get_redis
 router = APIRouter()
 
 
-@router.post("/users", response_model=schemas.User)
+@router.post("/users", tags=["Users"], response_model=schemas.User)
 async def create_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_db),
@@ -63,7 +63,7 @@ async def create_user(
     return db_user
 
 
-@router.get("/users", response_model=list[schemas.User])
+@router.get("/users", tags=["Users"], response_model=list[schemas.User])
 def get_users(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
@@ -71,7 +71,7 @@ def get_users(
     return crud.get_all_users(db)
 
 
-@router.get("/users/{user_id}", response_model=schemas.User)
+@router.get("/users/{user_id}", tags=["Users"], response_model=schemas.User)
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
@@ -83,7 +83,7 @@ def get_user(
     return user
 
 
-@router.put("/users/{user_id}", response_model=schemas.User)
+@router.put("/users/{user_id}", tags=["Users"], response_model=schemas.User)
 async def update_user(
     user_id: int,
     updates: schemas.UserUpdate,
@@ -124,7 +124,7 @@ async def update_user(
 
     return updated_user
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", tags=["Users"])
 async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
@@ -138,7 +138,7 @@ async def delete_user(
     return {"message": "User deleted"}
 
 
-@router.post("/login")
+@router.post("/login", tags=["Authentication"])
 def login(
     credentials: schemas.LoginRequest,
     db: Session = Depends(get_db),
@@ -156,7 +156,7 @@ def login(
     print(f"User {user.id} logged in")
     return {"message": "Login successful", "access_token": access_token, "token_type": "bearer"}
 
-@router.post("/logout")
+@router.post("/logout", tags=["Authentication"])
 async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
     redis = Depends(get_redis),
@@ -166,7 +166,7 @@ async def logout(
     return {"message": "Logout successful"}
 
 
-@router.patch("/users/{user_id}/activate")
+@router.patch("/users/{user_id}/activate", tags=["Users"])
 def activate_user(
     user_id: int,
     db: Session = Depends(get_db),
@@ -178,7 +178,7 @@ def activate_user(
     crud.activate_user(db, user)
     return {"message": "User activated"}
 
-@router.patch("/users/{user_id}/remove_roles")
+@router.patch("/users/{user_id}/remove_roles", tags=["Users"])
 def remove_user_role(
     user_id: int,
     data: schemas.RemoveRolesRequest,

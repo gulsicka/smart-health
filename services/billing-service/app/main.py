@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     await kafka_consumer.stop_consumer()
 
 
-app = FastAPI(title="Billing Service", lifespan=lifespan)
+app = FastAPI(title="Billing Service", description="Invoices generated from appointments. Staff only.", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # learners run their frontends on arbitrary origins; auth uses bearer tokens, not cookies
@@ -39,11 +39,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
-Instrumentator().instrument(app).expose(app)
+Instrumentator().instrument(app).expose(app, include_in_schema=False)
 
 app.include_router(invoice.router)
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok", "service": "billing-service"}

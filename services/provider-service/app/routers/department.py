@@ -10,7 +10,7 @@ router = APIRouter()
 R = RoleName
 
 
-@router.post("/departments", response_model=schemas.Department)
+@router.post("/departments", tags=["Departments"], response_model=schemas.Department)
 def create_department(
     dept: schemas.DepartmentCreate,
     db: Session = Depends(get_db),
@@ -21,7 +21,7 @@ def create_department(
     return crud.create_department(db, name=dept.name, description=getattr(dept, "description", None))
 
 
-@router.get("/departments", response_model=list[schemas.Department])
+@router.get("/departments", tags=["Departments"], response_model=list[schemas.Department])
 def get_departments(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.get_current_user),
@@ -29,7 +29,7 @@ def get_departments(
     return crud.get_all_departments(db)
 
 
-@router.get("/departments/{department_id}", response_model=schemas.Department)
+@router.get("/departments/{department_id}", tags=["Departments"], response_model=schemas.Department)
 def get_department(
     department_id: int,
     db: Session = Depends(get_db),

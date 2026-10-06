@@ -10,7 +10,7 @@ from app.enums import RoleName
 router = APIRouter()
 
 
-@router.post("/providers", response_model=schemas.Provider)
+@router.post("/providers", tags=["Providers"], response_model=schemas.Provider)
 async def create_provider(
     provider: schemas.ProviderCreate,
     db: Session = Depends(get_db),
@@ -25,7 +25,7 @@ async def create_provider(
     return db_provider
 
 
-@router.get("/providers", response_model=list[schemas.Provider])
+@router.get("/providers", tags=["Providers"], response_model=list[schemas.Provider])
 def get_providers(
     clinic_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
@@ -35,7 +35,7 @@ def get_providers(
     return crud.get_providers(db, clinic_id=clinic_id, department_id=department_id)
 
 
-@router.get("/providers/by-user-id/{user_id}", response_model=schemas.Provider)
+@router.get("/providers/by-user-id/{user_id}", tags=["Providers"], response_model=schemas.Provider)
 def get_provider_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
@@ -47,7 +47,7 @@ def get_provider_by_user_id(
     return provider
 
 
-@router.get("/providers/{provider_id}", response_model=schemas.Provider)
+@router.get("/providers/{provider_id}", tags=["Providers"], response_model=schemas.Provider)
 def get_provider(
     provider_id: int,
     db: Session = Depends(get_db),
@@ -59,7 +59,7 @@ def get_provider(
     return provider
 
 
-@router.delete("/providers/by-user-id/{user_id}")
+@router.delete("/providers/by-user-id/{user_id}", tags=["Providers"])
 async def delete_provider_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
@@ -71,7 +71,7 @@ async def delete_provider_by_user_id(
     return {"message": "Provider deleted"}
 
 
-@router.delete("/providers/{provider_id}")
+@router.delete("/providers/{provider_id}", tags=["Providers"])
 async def delete_provider(
     provider_id: int,
     db: Session = Depends(get_db),
@@ -85,7 +85,7 @@ async def delete_provider(
     return {"message": "Provider deleted"}
 
 
-@router.post("/providers/{provider_id}/setup-availability", status_code=201)
+@router.post("/providers/{provider_id}/setup-availability", tags=["Availability"], status_code=201)
 def setup_provider_availability(
     provider_id: int,
     body: schemas.ProviderAvailabilitySetup,

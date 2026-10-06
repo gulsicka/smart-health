@@ -10,7 +10,7 @@ router = APIRouter()
 R = RoleName
 
 
-@router.post("/patients", response_model=schemas.Patient)
+@router.post("/patients", tags=["Patients"], response_model=schemas.Patient)
 async def create_patient(
     patient: schemas.PatientCreate,
     db: Session = Depends(get_db),
@@ -26,7 +26,7 @@ async def create_patient(
     return db_patient
 
 
-@router.get("/patients", response_model=list[schemas.Patient])
+@router.get("/patients", tags=["Patients"], response_model=list[schemas.Patient])
 def get_patients(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF, R.PROVIDER)),
@@ -34,7 +34,7 @@ def get_patients(
     return crud.get_all_patients(db)
 
 
-@router.get("/patients/{patient_id}", response_model=schemas.Patient)
+@router.get("/patients/{patient_id}", tags=["Patients"], response_model=schemas.Patient)
 def get_patient(
     patient_id: int,
     db: Session = Depends(get_db),
@@ -46,7 +46,7 @@ def get_patient(
     return patient
 
 
-@router.put("/patients/{patient_id}", response_model=schemas.Patient)
+@router.put("/patients/{patient_id}", tags=["Patients"], response_model=schemas.Patient)
 def update_patient(
     patient_id: int,
     updates: schemas.PatientUpdate,
@@ -59,7 +59,7 @@ def update_patient(
     return crud.update_patient(db, patient, updates)
 
 
-@router.delete("/patients/{patient_id}")
+@router.delete("/patients/{patient_id}", tags=["Patients"])
 async def delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
@@ -73,7 +73,7 @@ async def delete_patient(
     return {"message": "Patient deleted"}
 
 
-@router.delete("/patients/by-user-id/{user_id}")
+@router.delete("/patients/by-user-id/{user_id}", tags=["Patients"])
 async def delete_patient_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),

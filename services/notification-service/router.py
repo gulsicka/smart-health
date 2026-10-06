@@ -10,7 +10,7 @@ from enums import RoleName
 router = APIRouter()
 
 
-@router.get("/notifications/{user_id}", response_model=list[schemas.NotificationOut])
+@router.get("/notifications/{user_id}", tags=["Notifications"], response_model=list[schemas.NotificationOut])
 def get_notifications_for_user(
     user_id: int,
     db: Session = Depends(get_db),
@@ -25,7 +25,7 @@ def get_notifications_for_user(
     return crud.get_notifications_by_user(db, user_id)
 
 
-@router.patch("/notifications/{notification_id}/read", response_model=schemas.NotificationOut)
+@router.patch("/notifications/{notification_id}/read", tags=["Notifications"], response_model=schemas.NotificationOut)
 def mark_notification_read(
     notification_id: int,
     db: Session = Depends(get_db),

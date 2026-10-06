@@ -35,7 +35,7 @@ ROLE_ALLOWED_TRANSITIONS = {
 }
 
 
-@router.post("/appointments")
+@router.post("/appointments", tags=["Appointments"])
 async def create_appointment(
     appointment: schemas.AppointmentCreate,
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
@@ -66,7 +66,7 @@ async def create_appointment(
     return {"message": "Appointment booked successfully", "workflow_id": handle.id}
 
 
-@router.post("/appointments/internal", response_model=schemas.Appointment)
+@router.post("/appointments/internal", tags=["Internal (service-to-service)"], response_model=schemas.Appointment)
 async def create_appointment_internal(
     appointment: schemas.AppointmentCreate,
     db: Session = Depends(get_db),
@@ -91,7 +91,7 @@ async def create_appointment_internal(
     return result
 
 
-@router.get("/appointments", response_model=list[schemas.Appointment])
+@router.get("/appointments", tags=["Appointments"], response_model=list[schemas.Appointment])
 def get_appointments(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
@@ -99,7 +99,7 @@ def get_appointments(
     return crud.get_all_appointments(db)
 
 
-@router.get("/patients/{patient_id}/appointments", response_model=list[schemas.Appointment])
+@router.get("/patients/{patient_id}/appointments", tags=["Appointment Lists"], response_model=list[schemas.Appointment])
 def get_appointments_by_patient(
     patient_id: int,
     db: Session = Depends(get_db),
@@ -108,7 +108,7 @@ def get_appointments_by_patient(
     return crud.get_appointments_by_patient(db, patient_id)
 
 
-@router.get("/providers/{provider_id}/appointments", response_model=list[schemas.Appointment])
+@router.get("/providers/{provider_id}/appointments", tags=["Appointment Lists"], response_model=list[schemas.Appointment])
 def get_appointments_by_provider(
     provider_id: int,
     db: Session = Depends(get_db),
@@ -117,7 +117,7 @@ def get_appointments_by_provider(
     return crud.get_appointments_by_provider(db, provider_id)
 
 
-@router.get("/clinics/{clinic_id}/appointments", response_model=list[schemas.Appointment])
+@router.get("/clinics/{clinic_id}/appointments", tags=["Appointment Lists"], response_model=list[schemas.Appointment])
 def get_appointments_by_clinic(
     clinic_id: int,
     db: Session = Depends(get_db),
@@ -126,7 +126,7 @@ def get_appointments_by_clinic(
     return crud.get_appointments_by_clinic(db, clinic_id)
 
 
-@router.get("/appointments/{appointment_id}", response_model=schemas.Appointment)
+@router.get("/appointments/{appointment_id}", tags=["Appointments"], response_model=schemas.Appointment)
 def get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
@@ -138,7 +138,7 @@ def get_appointment(
     return appointment
 
 
-@router.patch("/appointments/{appointment_id}/status", response_model=schemas.Appointment)
+@router.patch("/appointments/{appointment_id}/status", tags=["Appointments"], response_model=schemas.Appointment)
 async def update_appointment_status(
     appointment_id: int,
     updates: schemas.AppointmentUpdate,
@@ -184,7 +184,7 @@ async def update_appointment_status(
     return updated
 
 
-@router.get("/providers/{provider_id}/booked-slots", response_model=list[schemas.BookedSlot])
+@router.get("/providers/{provider_id}/booked-slots", tags=["Booked Slots"], response_model=list[schemas.BookedSlot])
 def get_booked_slots(
     provider_id: int,
     date: date_type = Query(..., description="Date to check, e.g. 2026-07-10"),
@@ -204,7 +204,7 @@ def get_booked_slots(
     ]
 
 
-@router.delete("/appointments/{appointment_id}")
+@router.delete("/appointments/{appointment_id}", tags=["Appointments"])
 def delete_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),

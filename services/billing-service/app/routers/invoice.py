@@ -8,7 +8,7 @@ from app.enums import RoleName
 router = APIRouter()
 
 
-@router.get("/invoices", response_model=list[schemas.InvoiceOut])
+@router.get("/invoices", tags=["Invoices"], response_model=list[schemas.InvoiceOut])
 def get_all_invoices(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
@@ -16,7 +16,7 @@ def get_all_invoices(
     return crud.get_all_invoices(db)
 
 
-@router.get("/invoices/{invoice_id}", response_model=schemas.InvoiceOut)
+@router.get("/invoices/{invoice_id}", tags=["Invoices"], response_model=schemas.InvoiceOut)
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
@@ -28,7 +28,7 @@ def get_invoice(
     return invoice
 
 
-@router.get("/invoices/appointment/{appointment_id}", response_model=schemas.InvoiceOut)
+@router.get("/invoices/appointment/{appointment_id}", tags=["Invoices"], response_model=schemas.InvoiceOut)
 def get_invoice_by_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
@@ -42,7 +42,7 @@ def get_invoice_by_appointment(
     return invoice
 
 
-@router.get("/invoices/patient/{patient_id}", response_model=list[schemas.InvoiceOut])
+@router.get("/invoices/patient/{patient_id}", tags=["Invoices"], response_model=list[schemas.InvoiceOut])
 def get_invoices_by_patient(
     patient_id: int,
     db: Session = Depends(get_db),

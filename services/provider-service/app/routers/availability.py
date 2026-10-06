@@ -11,7 +11,7 @@ router = APIRouter()
 R = RoleName
 
 
-@router.post("/providers/{provider_id}/availability", response_model=schemas.ProviderAvailability)
+@router.post("/providers/{provider_id}/availability", tags=["Availability"], response_model=schemas.ProviderAvailability)
 def set_availability(
     provider_id: int,
     avail: schemas.ProviderAvailabilityCreate,
@@ -39,7 +39,7 @@ def set_availability(
         raise HTTPException(status_code=400, detail="Could not save availability")
 
 
-@router.post("/providers/{provider_id}/setup-availability", response_model=schemas.ProviderAvailability)
+@router.post("/providers/{provider_id}/setup-availability", tags=["Availability"], response_model=schemas.ProviderAvailability)
 def setup_availability(
     provider_id: int,
     setup: schemas.ProviderAvailabilitySetup,
@@ -70,7 +70,7 @@ def setup_availability(
         raise HTTPException(status_code=400, detail="Could not save availability schedule")
 
 
-@router.get("/providers/{provider_id}/availability", response_model=list[schemas.ProviderAvailability])
+@router.get("/providers/{provider_id}/availability", tags=["Availability"], response_model=list[schemas.ProviderAvailability])
 def get_availability(
     provider_id: int,
     db: Session = Depends(get_db),
@@ -79,7 +79,7 @@ def get_availability(
     return crud.get_availability_by_provider(db, provider_id)
 
 
-@router.patch("/providers/{provider_id}/availability/{clinic_id}/date-status", response_model=schemas.ProviderAvailability)
+@router.patch("/providers/{provider_id}/availability/{clinic_id}/date-status", tags=["Availability"], response_model=schemas.ProviderAvailability)
 def update_date_status(
     provider_id: int,
     clinic_id: int,
@@ -98,7 +98,7 @@ def update_date_status(
     return updated
 
 
-@router.delete("/providers/{provider_id}/availability/{clinic_id}")
+@router.delete("/providers/{provider_id}/availability/{clinic_id}", tags=["Availability"])
 def delete_availability(
     provider_id: int,
     clinic_id: int,

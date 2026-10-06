@@ -10,7 +10,7 @@ router = APIRouter()
 R = RoleName
 
 
-@router.post("/clinics", response_model=schemas.Clinic)
+@router.post("/clinics", tags=["Clinics"], response_model=schemas.Clinic)
 def create_clinic(
     clinic: schemas.ClinicCreate,
     db: Session = Depends(get_db),
@@ -19,7 +19,7 @@ def create_clinic(
     return crud.create_clinic(db, clinic)
 
 
-@router.get("/clinics", response_model=list[schemas.Clinic])
+@router.get("/clinics", tags=["Clinics"], response_model=list[schemas.Clinic])
 def get_clinics(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.get_current_user),
@@ -27,7 +27,7 @@ def get_clinics(
     return crud.get_all_clinics(db)
 
 
-@router.get("/clinics/{clinic_id}", response_model=schemas.Clinic)
+@router.get("/clinics/{clinic_id}", tags=["Clinics"], response_model=schemas.Clinic)
 def get_clinic(
     clinic_id: int,
     db: Session = Depends(get_db),
@@ -39,7 +39,7 @@ def get_clinic(
     return clinic
 
 
-@router.post("/clinics/{clinic_id}/departments", response_model=schemas.Clinic)
+@router.post("/clinics/{clinic_id}/departments", tags=["Clinics"], response_model=schemas.Clinic)
 def add_department_to_clinic(
     clinic_id: int,
     body: schemas.ClinicAddDepartment,
@@ -57,7 +57,7 @@ def add_department_to_clinic(
     return crud.add_department_to_clinic(db, clinic, dept)
 
 
-@router.delete("/clinics/{clinic_id}/departments/{department_id}", response_model=schemas.Clinic)
+@router.delete("/clinics/{clinic_id}/departments/{department_id}", tags=["Clinics"], response_model=schemas.Clinic)
 def remove_department_from_clinic(
     clinic_id: int,
     department_id: int,

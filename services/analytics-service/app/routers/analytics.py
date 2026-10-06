@@ -10,7 +10,7 @@ from app.models import AppointmentEvent
 
 router = APIRouter()
 
-@router.get("/analytics")
+@router.get("/analytics", tags=["Analytics"])
 async def get_analytics():
 
     total_appointments = int((await redis_client.get("analytics:total_appointments")) or 0)
@@ -38,7 +38,7 @@ async def get_analytics():
     }
 
 
-@router.get("/analytics/filter")
+@router.get("/analytics/filter", tags=["Analytics"])
 def get_filtered_analytics(
     from_date: str = Query(...),
     to_date: str = Query(...),
@@ -67,7 +67,7 @@ def get_filtered_analytics(
         for row in results
     ]
     
-@router.get("/analytics/total-created")
+@router.get("/analytics/total-created", tags=["Analytics"])
 def get_total_appointments_created(
     from_date: str = Query(...),
     to_date: str = Query(...),
@@ -82,7 +82,7 @@ def get_total_appointments_created(
     return {"total": total, "event_type": event_type, "from": from_date, "to": to_date}
 
 
-@router.get("/analytics/ai")
+@router.get("/analytics/ai", tags=["Analytics"])
 async def get_ai_analytics():
     # ---- AI Assistant Usage — overall + per feature ----
     total_usage = int((await redis_client.get("analytics:ai_usage:total")) or 0)

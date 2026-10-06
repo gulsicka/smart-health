@@ -26,7 +26,7 @@ provider = TracerProvider(resource=resource)
 provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True)))
 trace.set_tracer_provider(provider)
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(title="Analytics Service", description="Operational metrics computed from appointment events.", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # learners run their frontends on arbitrary origins; auth uses bearer tokens, not cookies
@@ -34,10 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
-Instrumentator().instrument(app).expose(app)
+Instrumentator().instrument(app).expose(app, include_in_schema=False)
 
 app.include_router(analytics.router)
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok", "service": "analytics-service"}

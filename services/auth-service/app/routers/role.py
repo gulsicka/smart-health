@@ -8,7 +8,7 @@ from app.enums import RoleName
 router = APIRouter()
 
 
-@router.post("/roles", response_model=schemas.Role)
+@router.post("/roles", tags=["Roles"], response_model=schemas.Role)
 def create_role(
     role: schemas.RoleCreate,
     db: Session = Depends(get_db),
@@ -21,7 +21,7 @@ def create_role(
     return db_role
 
 
-@router.get("/roles", response_model=list[schemas.Role])
+@router.get("/roles", tags=["Roles"], response_model=list[schemas.Role])
 def get_roles(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.get_current_user),
@@ -29,7 +29,7 @@ def get_roles(
     return crud.get_all_roles(db)
 
 
-@router.delete("/roles/{role_id}")
+@router.delete("/roles/{role_id}", tags=["Roles"])
 def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
