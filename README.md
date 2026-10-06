@@ -490,4 +490,3 @@ There are four roles: `admin`, `fd_staff` (front desk), `provider` and `patient`
 1. Open the auth service's `/docs`, log in, and copy the token.
 2. Use `POST /users` to create a front-desk user, then log in as that user and explore the other services' docs pages.
 3. Generate types from each service's `/openapi.json`, then build your API client and a login screen first.
-4. Follow the milestones in the Frontend Guidelines document in `docs/`.
