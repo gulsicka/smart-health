@@ -441,28 +441,28 @@ Everything you need to start building the frontend against the deployed backend.
 
 ### Where the backend lives
 
-The backend runs on one AWS server and is reached over plain HTTP. Each service has its own port.
+The backend runs on one AWS server and is reached over HTTPS. Each service has its own port.
 
-> Server address: **`13.207.151.77`**. If this stops responding, ask the mentor for the current address. All URLs below use it, so keep it in one config value in your app.
+> Server address: **`13.126.173.33`**. If this stops responding, ask the mentor for the current address. All URLs below use it, so keep it in one config value in your app.
 
 | Service | Port | Base URL | Interactive docs |
 |---|---|---|---|
-| Auth (login, users, roles) | 8001 | `http://13.207.151.77:8001` | [/docs](http://13.207.151.77:8001/docs) |
-| Patients | 8002 | `http://13.207.151.77:8002` | [/docs](http://13.207.151.77:8002/docs) |
-| Providers, clinics, departments, availability | 8003 | `http://13.207.151.77:8003` | [/docs](http://13.207.151.77:8003/docs) |
-| Appointments | 8004 | `http://13.207.151.77:8004` | [/docs](http://13.207.151.77:8004/docs) |
-| Analytics | 8005 | `http://13.207.151.77:8005` | [/docs](http://13.207.151.77:8005/docs) |
-| Billing | 8006 | `http://13.207.151.77:8006` | [/docs](http://13.207.151.77:8006/docs) |
-| Notifications | 8008 | `http://13.207.151.77:8008` | [/docs](http://13.207.151.77:8008/docs) |
+| Auth (login, users, roles) | 8001 | `https://13.126.173.33:8001` | [/docs](https://13.126.173.33:8001/docs) |
+| Patients | 8002 | `https://13.126.173.33:8002` | [/docs](https://13.126.173.33:8002/docs) |
+| Providers, clinics, departments, availability | 8003 | `https://13.126.173.33:8003` | [/docs](https://13.126.173.33:8003/docs) |
+| Appointments | 8004 | `https://13.126.173.33:8004` | [/docs](https://13.126.173.33:8004/docs) |
+| Analytics | 8005 | `https://13.126.173.33:8005` | [/docs](https://13.126.173.33:8005/docs) |
+| Billing | 8006 | `https://13.126.173.33:8006` | [/docs](https://13.126.173.33:8006/docs) |
+| Notifications | 8008 | `https://13.126.173.33:8008` | [/docs](https://13.126.173.33:8008/docs) |
 
-Each `/docs` page is a Swagger UI where you can try every endpoint in the browser. The machine-readable spec is at `/openapi.json` on the same port (for example `http://13.207.151.77:8002/openapi.json`), which you can feed to `openapi-typescript` to generate types.
+Each `/docs` page is a Swagger UI where you can try every endpoint in the browser. The machine-readable spec is at `/openapi.json` on the same port (for example `https://13.126.173.33:8002/openapi.json`), which you can feed to `openapi-typescript` to generate types.
 
 CORS is enabled on all services, so your app can call them directly from `localhost`.
 
 ### Logging in
 
 ```
-POST http://13.207.151.77:8001/login
+POST https://13.126.173.33:8001/login
 Content-Type: application/json
 
 { "email": "admin@smarthealth.com", "password": "admin" }
