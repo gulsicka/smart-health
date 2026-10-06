@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.consumer import start_consumer, stop_consumer, consume_events
 from app.routers import analytics
 from contextlib import asynccontextmanager
@@ -26,6 +27,12 @@ provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="http:/
 trace.set_tracer_provider(provider)
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # learners run their frontends on arbitrary origins; auth uses bearer tokens, not cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 

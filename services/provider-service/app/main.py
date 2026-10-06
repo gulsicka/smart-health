@@ -1,5 +1,6 @@
 import asyncio
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app import kafka_producer, kafka_consumer
 from app.routers import department, clinic, provider, availability
@@ -28,6 +29,12 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # learners run their frontends on arbitrary origins; auth uses bearer tokens, not cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 

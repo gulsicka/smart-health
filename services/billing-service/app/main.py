@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers import invoice
 from app import kafka_consumer
 from app.database import Base, engine
@@ -31,6 +32,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Billing Service", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # learners run their frontends on arbitrary origins; auth uses bearer tokens, not cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="/metrics")
 Instrumentator().instrument(app).expose(app)
 
