@@ -176,7 +176,7 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
       - REMINDER_TASK_QUEUE=appointment_reminder_queue
       - PDF_INGESTION_TASK_QUEUE=pdf_ingestion_queue
-      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_URL=http://ai-service:8000   # required by temporal-workflow's settings; ai-service itself is disabled below
     depends_on:
       - temporal
       - auth-service
@@ -215,15 +215,16 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
-  schema-registry:
-    image: confluentinc/cp-schema-registry:latest
-    ports: ["8081:8081"]
-    environment:
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092   # which kafka to connect to
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry                  # hostname this registry advertises
-    depends_on:
-      kafka:
-        condition: service_healthy
+# schema-registry disabled: not used by any service
+#   schema-registry:
+#     image: confluentinc/cp-schema-registry:latest
+#     ports: ["8081:8081"]
+#     environment:
+#       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092   # which kafka to connect to
+#       SCHEMA_REGISTRY_HOST_NAME: schema-registry                  # hostname this registry advertises
+#     depends_on:
+#       kafka:
+#         condition: service_healthy
 
   kafdrop:
     image: obsidiandynamics/kafdrop
@@ -400,47 +401,48 @@ services:
       timeout: 5s
       retries: 10
 
-  ai-db:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: ai_db
-    ports: ["5441:5432"]
-    volumes:
-      - ai_postgres_data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+# AI service disabled for this assignment (ai-db + ai-service). Note: it also created the appointment reminder schedules.
+#   ai-db:
+#     image: pgvector/pgvector:pg16
+#     environment:
+#       POSTGRES_PASSWORD: password
+#       POSTGRES_DB: ai_db
+#     ports: ["5441:5432"]
+#     volumes:
+#       - ai_postgres_data:/var/lib/postgresql
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres -d ai_db"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 10
 
-  ai-service:
-    build: ./services/ai-service
-    ports: ["8007:8000"]
-    environment:
-      SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: postgresql+psycopg://postgres:password@ai-db:5432/ai_db
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      APPOINTMENT_KAFKA_TOPIC: appointments.events
-      AI_KAFKA_TOPIC: ai.events
-      PROVIDER_SERVICE_URL: http://provider-service:8000
-      PATIENT_SERVICE_URL: http://patient-service:8000
-      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
-      AUTH_SERVICE_URL: http://auth-service:8000
-      SYSTEM_EMAIL: admin@smarthealth.com
-      SYSTEM_PASSWORD: admin
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      GROQ_MODEL: ${GROQ_MODEL}
-      TEMPORAL_HOST: temporal:7233
-      TEMPORAL_NAMESPACE: default
-      REMINDER_TASK_QUEUE: appointment_reminder_queue
-      PDF_INGESTION_TASK_QUEUE: pdf_ingestion_queue
+#   ai-service:
+#     build: ./services/ai-service
+#     ports: ["8007:8000"]
+#     environment:
+#       SECRET_KEY: ${SECRET_KEY}
+#       DATABASE_URL: postgresql+psycopg://postgres:password@ai-db:5432/ai_db
+#       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+#       APPOINTMENT_KAFKA_TOPIC: appointments.events
+#       AI_KAFKA_TOPIC: ai.events
+#       PROVIDER_SERVICE_URL: http://provider-service:8000
+#       PATIENT_SERVICE_URL: http://patient-service:8000
+#       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+#       AUTH_SERVICE_URL: http://auth-service:8000
+#       SYSTEM_EMAIL: admin@smarthealth.com
+#       SYSTEM_PASSWORD: admin
+#       GROQ_API_KEY: ${GROQ_API_KEY}
+#       GROQ_MODEL: ${GROQ_MODEL}
+#       TEMPORAL_HOST: temporal:7233
+#       TEMPORAL_NAMESPACE: default
+#       REMINDER_TASK_QUEUE: appointment_reminder_queue
+#       PDF_INGESTION_TASK_QUEUE: pdf_ingestion_queue
 
-    depends_on:
-      ai-db:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
+#     depends_on:
+#       ai-db:
+#         condition: service_healthy
+#       kafka:
+#         condition: service_healthy
 
 volumes:
   auth_postgres_data:
@@ -453,4 +455,4 @@ volumes:
   notification_postgres_data:
   analytics_postgres_data:
   billing_postgres_data:
-  ai_postgres_data:
+  # ai_postgres_data:

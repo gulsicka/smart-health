@@ -208,7 +208,7 @@ def get_booked_slots(
 def delete_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
