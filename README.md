@@ -433,3 +433,61 @@ Ingestion hashes and diffs per page rather than per file: unchanged pages are sk
 | `user_id` | integer | nullable | The admin who triggered the interaction |
 
 Populated by analytics-service consuming the `ai.events` Kafka topic; Redis counters serve the real-time totals behind `GET /analytics/ai`.
+
+
+## Frontend Learning: Getting Started
+
+Everything you need to start building the frontend against the deployed backend.
+
+### Where the backend lives
+
+The backend runs on one AWS server and is reached over plain HTTP. Each service has its own port.
+
+> Server address: **`13.207.151.77`**. If this stops responding, ask the mentor for the current address. All URLs below use it, so keep it in one config value in your app.
+
+| Service | Port | Base URL | Interactive docs |
+|---|---|---|---|
+| Auth (login, users, roles) | 8001 | `http://13.207.151.77:8001` | [/docs](http://13.207.151.77:8001/docs) |
+| Patients | 8002 | `http://13.207.151.77:8002` | [/docs](http://13.207.151.77:8002/docs) |
+| Providers, clinics, departments, availability | 8003 | `http://13.207.151.77:8003` | [/docs](http://13.207.151.77:8003/docs) |
+| Appointments | 8004 | `http://13.207.151.77:8004` | [/docs](http://13.207.151.77:8004/docs) |
+| Analytics | 8005 | `http://13.207.151.77:8005` | [/docs](http://13.207.151.77:8005/docs) |
+| Billing | 8006 | `http://13.207.151.77:8006` | [/docs](http://13.207.151.77:8006/docs) |
+| Notifications | 8008 | `http://13.207.151.77:8008` | [/docs](http://13.207.151.77:8008/docs) |
+
+Each `/docs` page is a Swagger UI where you can try every endpoint in the browser. The machine-readable spec is at `/openapi.json` on the same port (for example `http://13.207.151.77:8002/openapi.json`), which you can feed to `openapi-typescript` to generate types.
+
+CORS is enabled on all services, so your app can call them directly from `localhost`.
+
+### Logging in
+
+```
+POST http://13.207.151.77:8001/login
+Content-Type: application/json
+
+{ "email": "admin@smarthealth.com", "password": "admin" }
+```
+
+The response contains an `access_token`. Send it on every other request as `Authorization: Bearer <token>`. In Swagger, click **Authorize** and paste it (each service's docs page needs the token once). Tokens expire after 30 minutes. The token carries the user id and roles, which is what your route guards should read.
+
+A default admin account (`admin@smarthealth.com` / `admin`) exists on a fresh deployment. Use it to create other users (front-desk, provider, patient) through `POST /users` on the auth service.
+
+### Roles
+
+There are four roles: `admin`, `fd_staff` (front desk), `provider` and `patient`. One user can hold more than one role. The backend enforces what each role may do, so your screens should only offer actions the current user's roles allow. The assignment document lists what each role can do.
+
+### API Behaviour to Be Aware Of
+
+- **No pagination.** List endpoints return everything in one response. Paging, infinite loading, search and filtering all happen in your app.
+- **Appointment status is changed manually.** A new appointment starts as `requested`, and every later status is set with `PATCH /appointments/{id}/status`. The backend validates the transition and the role, and returns an error if either is wrong.
+- **Booking is not instant.** `POST /appointments` is validated before the appointment exists, and related data (invoices, notifications, analytics) appears shortly afterwards. Refetch or poll rather than assuming it's there immediately.
+- **Soft deletes.** Deleted patients and providers are still returned, with `is_deleted: true`. Deleted users have `status: "deleted"`. Check the flag in your UI.
+- **Notifications are per user.** `GET /notifications/{user_id}` returns that user's notifications (you can only read your own unless you are admin or front desk), and `PATCH /notifications/{notification_id}/read` marks one as read.
+- **No real-time channel.** There are no WebSockets or server push. Use polling or refetch intervals for anything that changes after a request returns.
+
+### First steps
+
+1. Open the auth service's `/docs`, log in, and copy the token.
+2. Use `POST /users` to create a front-desk user, then log in as that user and explore the other services' docs pages.
+3. Generate types from each service's `/openapi.json`, then build your API client and a login screen first.
+4. Follow the milestones in the Frontend Guidelines document in `docs/`.
