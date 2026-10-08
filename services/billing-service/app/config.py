@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    PATIENT_SERVICE_URL: str = "http://patient-service:8000"
+    PROVIDER_SERVICE_URL: str = "http://provider-service:8000"
     KAFKA_BOOTSTRAP_SERVERS: str
     KAFKA_TOPIC: str = "appointments.events"
     REDIS_URL: str

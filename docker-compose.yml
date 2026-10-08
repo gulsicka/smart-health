@@ -262,6 +262,7 @@ services:
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
       DATABASE_URL: postgresql+psycopg://postgres:password@analytics-db:5432/analytics_db
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       kafka:
         condition: service_healthy

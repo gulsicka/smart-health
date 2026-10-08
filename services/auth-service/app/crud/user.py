@@ -47,6 +47,12 @@ def update_user(db: Session, user: models.User, name: str | None, email: str | N
     return user
 
 
+def update_password(db: Session, user: models.User, new_password: str):
+    user.password_hash = utils.hash_password(new_password)
+    db.commit()
+    return user
+
+
 def delete_user(db: Session, user: models.User):
     db.delete(user)
     db.commit()

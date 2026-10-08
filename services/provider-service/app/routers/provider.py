@@ -63,7 +63,7 @@ def get_provider(
 async def delete_provider_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     provider = crud.soft_delete_provider_by_user_id(db, user_id)
     if provider:
@@ -75,7 +75,7 @@ async def delete_provider_by_user_id(
 async def delete_provider(
     provider_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     provider = crud.get_provider_by_id(db, provider_id)
     if not provider:
@@ -83,28 +83,3 @@ async def delete_provider(
     crud.soft_delete_provider(db, provider)
     await kafka_producer.publish_provider_deleted(provider.id, provider.user_id)
     return {"message": "Provider deleted"}
-
-
-@router.post("/providers/{provider_id}/setup-availability", tags=["Availability"], status_code=201)
-def setup_provider_availability(
-    provider_id: int,
-    body: schemas.ProviderAvailabilitySetup,
-    db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
-):
-    if not crud.get_provider_by_id(db, provider_id):
-        raise HTTPException(status_code=404, detail="Provider not found")
-    if not crud.get_clinic_by_id(db, body.clinic_id):
-        raise HTTPException(status_code=404, detail="Clinic not found")
-    try:
-        crud.setup_availability_schedule(
-            db,
-            provider_id=provider_id,
-            clinic_id=body.clinic_id,
-            working_days=body.working_days,
-            start_time=body.start_time,
-            end_time=body.end_time,
-        )
-    except IntegrityError:
-        raise HTTPException(status_code=400, detail="Some availability slots already exist for this provider")
-    return {"message": "Provider availability set up for the next 30 days"}

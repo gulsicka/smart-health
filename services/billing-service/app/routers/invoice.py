@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import schemas, crud, auth
 from app.enums import RoleName
+from app.ownership import ensure_access
+from fastapi.security import HTTPAuthorizationCredentials
 
 router = APIRouter()
 
@@ -20,11 +22,15 @@ def get_all_invoices(
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
+    current_user: schemas.TokenData = Depends(
+        auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)
+    ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
     invoice = crud.get_invoice_by_id(db, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    ensure_access(current_user, credentials.credentials, provider_id=invoice.provider_id)
     return invoice
 
 
@@ -35,10 +41,12 @@ def get_invoice_by_appointment(
     current_user: schemas.TokenData = Depends(
         auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)
     ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
     invoice = crud.get_invoice_by_appointment(db, appointment_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    ensure_access(current_user, credentials.credentials, provider_id=invoice.provider_id)
     return invoice
 
 
@@ -49,5 +57,20 @@ def get_invoices_by_patient(
     current_user: schemas.TokenData = Depends(
         auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)
     ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
+    ensure_access(current_user, credentials.credentials, patient_id=patient_id)
     return crud.get_invoices_by_patient(db, patient_id)
+
+
+@router.get("/invoices/provider/{provider_id}", tags=["Invoices"], response_model=list[schemas.InvoiceOut])
+def get_invoices_by_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(
+        auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)
+    ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
+):
+    ensure_access(current_user, credentials.credentials, provider_id=provider_id)
+    return crud.get_invoices_by_provider(db, provider_id)

@@ -3,12 +3,24 @@ from aiokafka import AIOKafkaConsumer
 import redis.asyncio as aioredis
 import json
 from .config import settings
-from .celery_client import notify_booking_confirmation, notify_appointment_cancellation
+from .celery_client import notify_user
+from .user_lookup import get_patient_user_id, get_provider_user_id
 from app.crud.appointments import insert_event
 from app.crud.ai_events import insert_ai_event
 
 consumer: AIOKafkaConsumer | None = None
 redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+
+async def notify_appointment_parties(event: dict, notification_type: str, message: str):
+    # notifications are stored against user ids, so translate the patient and
+    # provider ids on the event to their user ids; both parties are told
+    user_ids = {
+        await get_patient_user_id(event.get("patient_id")),
+        await get_provider_user_id(event.get("provider_id")),
+    }
+    for user_id in user_ids - {None}:
+        notify_user(user_id, event.get("appointment_id"), notification_type, message)
+
 
 async def handle_event(event: dict):
     event_type = event.get("event_type")
@@ -24,7 +36,6 @@ async def handle_event(event: dict):
         await redis_client.incr("analytics:total_appointments")
         await redis_client.hincrby("analytics:daily_bookings", date, 1)
         insert_event(event, event_type) #time scale db record insertion
-        notify_booking_confirmation(patient_id, appointment_id)
 
     elif event_type == "appointment.status_updated":
         if status == "checked_in":
@@ -52,13 +63,22 @@ async def handle_event(event: dict):
             insert_event(event, "appointment.completed")
             
         elif status == "confirmed":
-            notify_booking_confirmation(patient_id, appointment_id)
+            await notify_appointment_parties(
+                event,
+                "booking_confirmation",
+                f"Appointment {appointment_id} on {event.get('date')} at {str(event.get('start_time'))[:5]} has been confirmed.",
+            )
             insert_event(event, "appointment.confirmed")
 
         elif status == "cancelled":
             await redis_client.incr("analytics:total_cancelled")
             await redis_client.hincrby("analytics:daily_cancellations", date, 1)
-            notify_appointment_cancellation(patient_id, appointment_id)
+            await notify_appointment_parties(
+                event,
+                "appointment_cancellation",
+                f"Appointment {appointment_id} on {event.get('date')} at {str(event.get('start_time'))[:5]} "
+                f"was cancelled by {event.get('changed_by', 'clinic staff')}.",
+            )
             insert_event(event, "appointment.cancelled") #time scale db record insertion
 
     elif event_type in ("ai.chat", "ai.communication", "ai.report"):

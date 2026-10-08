@@ -5,6 +5,7 @@ from .user import (
     get_roles_by_ids,
     create_user,
     update_user,
+    update_password,
     delete_user,
     soft_delete_user,
     activate_user,

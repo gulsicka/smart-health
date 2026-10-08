@@ -3,12 +3,17 @@ from sqlalchemy import text
 from app.consumer import redis_client
 from app.database import SessionLocal
 from typing import Optional
+from datetime import date, datetime, time
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 from app.models import AppointmentEvent
 
-router = APIRouter()
+from app import auth
+from app.enums import RoleName
+
+# the analytics dashboard is for admin and front-desk staff only
+router = APIRouter(dependencies=[Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF))])
 
 @router.get("/analytics", tags=["Analytics"])
 async def get_analytics():
@@ -40,18 +45,20 @@ async def get_analytics():
 
 @router.get("/analytics/filter", tags=["Analytics"])
 def get_filtered_analytics(
-    from_date: str = Query(...),
-    to_date: str = Query(...),
+    from_date: date = Query(..., description="Start date, e.g. 2026-01-01"),
+    to_date: date = Query(..., description="End date (inclusive), e.g. 2026-12-31"),
     clinic_id: Optional[int] = Query(None),
     provider_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     query = db.query(
-        func.time_bucket('1 day', AppointmentEvent.time).label('day'),
+        func.time_bucket(text("INTERVAL '1 day'"), AppointmentEvent.time).label('day'),
         AppointmentEvent.event_type,
         func.count().label('total')
     ).filter(
-        AppointmentEvent.time.between(from_date, to_date)
+        AppointmentEvent.time.between(
+            datetime.combine(from_date, time.min), datetime.combine(to_date, time.max)
+        )
     )
 
     if clinic_id is not None:
@@ -69,17 +76,19 @@ def get_filtered_analytics(
     
 @router.get("/analytics/total-created", tags=["Analytics"])
 def get_total_appointments_created(
-    from_date: str = Query(...),
-    to_date: str = Query(...),
+    from_date: date = Query(..., description="Start date, e.g. 2026-01-01"),
+    to_date: date = Query(..., description="End date (inclusive), e.g. 2026-12-31"),
     event_type: str = Query(...),
     db: Session = Depends(get_db),
 ):
     total = db.query(func.count()).filter(
-        AppointmentEvent.time.between(from_date, to_date),
+        AppointmentEvent.time.between(
+            datetime.combine(from_date, time.min), datetime.combine(to_date, time.max)
+        ),
         AppointmentEvent.event_type == event_type
     ).scalar()
 
-    return {"total": total, "event_type": event_type, "from": from_date, "to": to_date}
+    return {"total": total, "event_type": event_type, "from": from_date.isoformat(), "to": to_date.isoformat()}
 
 
 @router.get("/analytics/ai", tags=["Analytics"])

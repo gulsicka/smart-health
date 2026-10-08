@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     REDIS_URL: str
     RABBITMQ_URL: str
     DATABASE_URL: str
+    SECRET_KEY: str
+    PATIENT_SERVICE_URL: str = "http://patient-service:8000"
+    PROVIDER_SERVICE_URL: str = "http://provider-service:8000"
+    ALGORITHM: str = "HS256"
 
 
 settings = Settings()

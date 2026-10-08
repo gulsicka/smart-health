@@ -5,9 +5,12 @@ import uuid
 
 from app.database import get_db
 from app import schemas, auth, crud, tasks
-from app.utils import workflow_id_for
+from app.utils import workflow_id_for, root_cause_message
 from app.enums import AppointmentStatus, RoleName
 from app import kafka_producer
+from app.ownership import ensure_access
+from fastapi.security import HTTPAuthorizationCredentials
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter()
 
@@ -60,7 +63,7 @@ async def create_appointment(
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=str(e.cause) if e.cause else "Appointment booking failed",
+            detail=root_cause_message(e) or "Appointment booking failed",
         )
 
     return {"message": "Appointment booked successfully", "workflow_id": handle.id}
@@ -104,7 +107,9 @@ def get_appointments_by_patient(
     patient_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PATIENT)),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
+    ensure_access(current_user, credentials.credentials, patient_id=patient_id)
     return crud.get_appointments_by_patient(db, patient_id)
 
 
@@ -113,7 +118,9 @@ def get_appointments_by_provider(
     provider_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
+    ensure_access(current_user, credentials.credentials, provider_id=provider_id)
     return crud.get_appointments_by_provider(db, provider_id)
 
 
@@ -130,11 +137,18 @@ def get_appointments_by_clinic(
 def get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER)),
+    current_user: schemas.TokenData = Depends(
+        auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT)
+    ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    ensure_access(
+        current_user, credentials.credentials,
+        patient_id=appointment.patient_id, provider_id=appointment.provider_id,
+    )
     return appointment
 
 
@@ -146,10 +160,15 @@ async def update_appointment_status(
     current_user: schemas.TokenData = Depends(
         auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF, RoleName.PROVIDER, RoleName.PATIENT)
     ),
+    credentials: HTTPAuthorizationCredentials = Depends(auth.bearer_scheme),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    await run_in_threadpool(
+        ensure_access, current_user, credentials.credentials,
+        patient_id=appointment.patient_id, provider_id=appointment.provider_id,
+    )
 
     new_status = updates.status
 
@@ -164,6 +183,13 @@ async def update_appointment_status(
     if not any(r in allowed_roles for r in current_user.roles):
         raise HTTPException(status_code=403, detail=f"Your role is not allowed to set status to '{new_status}'")
 
+    if any(r in (RoleName.ADMIN, RoleName.FD_STAFF) for r in current_user.roles):
+        changed_by = "clinic staff"
+    elif RoleName.PROVIDER in current_user.roles:
+        changed_by = "the provider"
+    else:
+        changed_by = "the patient"
+
     updated  = crud.update_appointment_status(db, appointment, new_status)
     await kafka_producer.publish_event(
     event={
@@ -177,6 +203,7 @@ async def update_appointment_status(
             "status": updated.status,
             "event_id": str(uuid.uuid4()),
             "event_type": "appointment.status_updated",
+            "changed_by": changed_by,
             "timestamp": updated.created_at.isoformat(),
     },
     key=str(updated.id),

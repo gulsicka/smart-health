@@ -159,3 +159,14 @@ def send_booking_failed(patient_id: int, provider_id: int, clinic_id: int, start
         db.commit()
     finally:
         db.close()
+
+
+@app.task
+def send_appointment_notification(user_id: int, appointment_id: int | None, notification_type: str, message: str):
+    print(f"[MOCK] Sending {notification_type} notification to user {user_id}")
+    db = SessionLocal()
+    try:
+        db.add(Notification(user_id=user_id, message=message, type=notification_type))
+        db.commit()
+    finally:
+        db.close()

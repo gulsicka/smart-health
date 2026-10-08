@@ -4,6 +4,13 @@ from .config import settings
 celery_app = Celery("analytics_service", broker=settings.RABBITMQ_URL)
 
 
+def notify_user(user_id: int, appointment_id: int, notification_type: str, message: str):
+    celery_app.send_task(
+        "tasks.send_appointment_notification",
+        args=[user_id, appointment_id, notification_type, message],
+    )
+
+
 def notify_booking_confirmation(patient_id: int, appointment_id: int):
     celery_app.send_task("tasks.send_booking_confirmation", args=[patient_id, appointment_id])
 

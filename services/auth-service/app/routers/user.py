@@ -2,7 +2,7 @@ from datetime import timedelta
 from uuid import uuid4
 from fastapi.security import HTTPAuthorizationCredentials
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -52,10 +52,9 @@ async def create_user(
     try:
         await handle.result()
     except Exception as e:
-        cause = getattr(e, "cause", None)
         raise HTTPException(
             status_code=400,
-            detail=f"User setup failed: {str(cause) if cause else str(e)}",
+            detail=f"User setup failed: {utils.root_cause_message(e)}",
         )
 
     print(f"User {current_user.user_id} created user {db_user.email}")
@@ -66,16 +65,44 @@ async def create_user(
 @router.get("/users", tags=["Users"], response_model=list[schemas.User])
 def get_users(
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     return crud.get_all_users(db)
+
+
+@router.get("/users/me", tags=["Users"], response_model=schemas.User)
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
+):
+    user = crud.get_user_by_id(db, current_user.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.patch("/users/me/password", tags=["Users"])
+def change_my_password(
+    body: schemas.ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
+):
+    user = crud.get_user_by_id(db, current_user.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not utils.verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    crud.update_password(db, user, body.new_password)
+    return {"message": "Password updated"}
 
 
 @router.get("/users/{user_id}", tags=["Users"], response_model=schemas.User)
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN, RoleName.FD_STAFF)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:
@@ -127,12 +154,18 @@ async def update_user(
 @router.delete("/users/{user_id}", tags=["Users"])
 async def delete_user(
     user_id: int,
+    hard: bool = Query(False, description="Only honoured for a user whose setup never finished (status 'pending'): removes the row entirely instead of flagging it deleted"),
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(RoleName.ADMIN)),
 ):
     user = crud.get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if hard and user.status == UserStatus.PENDING:
+        # rollback of a failed user creation: remove the half-created user so the
+        # email is free to use again
+        crud.delete_user(db, user)
+        return {"message": "User removed"}
     crud.soft_delete_user(db, user)
     await kafka_producer.publish_user_deleted(user_id)
     return {"message": "User deleted"}
@@ -148,6 +181,8 @@ def login(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid email or password")
     if user.status == UserStatus.PENDING:
         raise HTTPException(status_code=403, detail="Account setup is still in progress")
+    if user.status == UserStatus.DELETED:
+        raise HTTPException(status_code=403, detail="This account has been deleted")
 
     access_token = auth.create_access_token(data=schemas.TokenPayload(
         user_id=user.id,

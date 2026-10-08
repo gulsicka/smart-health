@@ -34,6 +34,23 @@ def get_patients(
     return crud.get_all_patients(db)
 
 
+@router.get("/patients/by-user-id/{user_id}", tags=["Patients"], response_model=schemas.Patient)
+def get_patient_by_user_id(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.TokenData = Depends(auth.get_current_user),
+):
+    # a patient looks up their own profile (to learn their patient_id) from the
+    # user_id in their token; admin, front-desk staff and providers may look up anyone's
+    can_view_any = any(r in (R.ADMIN, R.FD_STAFF, R.PROVIDER) for r in current_user.roles)
+    if current_user.user_id != user_id and not can_view_any:
+        raise HTTPException(status_code=403, detail="You can only view your own patient profile")
+    patient = crud.get_patient_by_user_id(db, user_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+
 @router.get("/patients/{patient_id}", tags=["Patients"], response_model=schemas.Patient)
 def get_patient(
     patient_id: int,
@@ -63,7 +80,7 @@ def update_patient(
 async def delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF)),
 ):
     patient = crud.get_patient_by_id(db, patient_id)
     if not patient:
@@ -77,7 +94,7 @@ async def delete_patient(
 async def delete_patient_by_user_id(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN)),
+    current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.FD_STAFF)),
 ):
     patient = crud.soft_delete_patient_by_user_id(db, user_id)
     if patient:

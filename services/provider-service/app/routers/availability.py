@@ -87,6 +87,12 @@ def update_date_status(
     db: Session = Depends(get_db),
     current_user: schemas.TokenData = Depends(auth.require_role(R.ADMIN, R.PROVIDER)),
 ):
+    # a provider can only change their own schedule; admin can change anyone's
+    if R.ADMIN not in current_user.roles:
+        own = crud.get_provider_by_user_id(db, current_user.user_id)
+        if not own or own.id != provider_id:
+            raise HTTPException(status_code=403, detail="You can only change your own availability")
+
     avail = crud.get_availability_by_clinic(db, provider_id, clinic_id)
     if not avail:
         raise HTTPException(status_code=404, detail="Availability not found")

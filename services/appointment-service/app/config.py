@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    PATIENT_SERVICE_URL: str = "http://patient-service:8000"
+    PROVIDER_SERVICE_URL: str = "http://provider-service:8000"
     TEMPORAL_HOST: str
     TEMPORAL_NAMESPACE: str = "default"
     APPOINTMENT_TASK_QUEUE: str

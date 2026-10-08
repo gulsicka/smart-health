@@ -3,7 +3,7 @@ from temporalio import activity
 import clients.patient.api as patient_client
 import clients.provider.api as provider_client
 import clients.appointment.api as appointment_client
-from notifications import notify_booking_created, notify_booking_failed as _dispatch_booking_failed
+from notifications import notify_user_appointment
 from schemas import AppointmentInput
 
 
@@ -48,23 +48,38 @@ async def check_for_appointment_conflict(appointment: AppointmentInput):
             and appt["end_time"] > appointment.start_time
         ):
             raise Exception("Provider already has an appointment in this time slot.")
-    await appointment_client.create_appointment_internal(dataclasses.asdict(appointment))
-    notify_booking_created(
-        patient_id=appointment.patient_id,
-        provider_id=appointment.provider_id,
-        date=appointment.date,
-        start_time=appointment.start_time,
-        end_time=appointment.end_time,
-    )
+    created = (await appointment_client.create_appointment_internal(dataclasses.asdict(appointment))).json()
+    # the appointment already exists at this point, so a notification problem must not fail the booking
+    try:
+        when = f"{appointment.date} from {appointment.start_time[:5]} to {appointment.end_time[:5]}"
+        # notifications are stored against user ids, so look up the patient's and provider's user ids
+        patient_user_id = (await patient_client.get_patient(appointment.patient_id)).json()["user_id"]
+        provider_user_id = (await provider_client.get_provider(appointment.provider_id)).json()["user_id"]
+        notify_user_appointment(
+            patient_user_id, created["id"], "booking_created",
+            f"Appointment {created['id']} has been booked for you on {when}.",
+        )
+        notify_user_appointment(
+            provider_user_id, created["id"], "booking_created",
+            f"A new appointment ({created['id']}) has been booked with you on {when}.",
+        )
+    except Exception as e:
+        print(f"Booking notifications skipped: {e}")
 
 
 @activity.defn
 async def notify_booking_failed(data: AppointmentInput):
-    _dispatch_booking_failed(
-        patient_id=data.patient_id,
-        provider_id=data.provider_id,
-        clinic_id=data.clinic_id,
-        start_time=data.start_time,
-        end_time=data.end_time,
+    message = (
+        f"The appointment booking on {data.date} from {data.start_time[:5]} to {data.end_time[:5]} "
+        f"could not be confirmed."
     )
+    for client_call, entity_id in (
+        (patient_client.get_patient, data.patient_id),
+        (provider_client.get_provider, data.provider_id),
+    ):
+        try:
+            user_id = (await client_call(entity_id)).json()["user_id"]
+        except Exception:
+            continue  # the patient/provider may be exactly what failed validation
+        notify_user_appointment(user_id, None, "booking_failed", message)
     print(f"Booking failed notification dispatched for patient {data.patient_id}")

@@ -40,6 +40,10 @@ def get_invoices_by_patient(db: Session, patient_id: int) -> list[models.Invoice
     return db.query(models.Invoice).filter(models.Invoice.patient_id == patient_id).all()
 
 
+def get_invoices_by_provider(db: Session, provider_id: int) -> list[models.Invoice]:
+    return db.query(models.Invoice).filter(models.Invoice.provider_id == provider_id).all()
+
+
 def get_all_invoices(db: Session) -> list[models.Invoice]:
     return db.query(models.Invoice).all()
 

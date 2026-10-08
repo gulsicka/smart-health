@@ -32,6 +32,13 @@ def notify_user_role_update_failed(user_id: int, roles: list):
     )
 
 
+def notify_user_appointment(user_id: int, appointment_id, notification_type: str, message: str):
+    celery_app.send_task(
+        "tasks.send_appointment_notification",
+        args=[user_id, appointment_id, notification_type, message],
+    )
+
+
 def notify_booking_created(patient_id: int, provider_id: int, date: str, start_time: str, end_time: str):
     celery_app.send_task(
         "tasks.send_booking_created",

@@ -9,7 +9,7 @@ async def get_appointments():
 
 
 async def create_appointment_internal(appointment: dict):
-    await make_request(
+    return await make_request(
         "post",
         f"{APPOINTMENT_URL}/appointments/internal",
         json=appointment,

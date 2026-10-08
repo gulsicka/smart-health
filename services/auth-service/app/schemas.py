@@ -75,6 +75,11 @@ class AuditLog(AuditLogBase):
     class Config:
         from_attributes = True
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class RemoveRolesRequest(BaseModel):
     role_names: list[str]
 
